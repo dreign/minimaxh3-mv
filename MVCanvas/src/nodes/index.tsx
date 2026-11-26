@@ -3,6 +3,11 @@ import { Handle, Position, useNodeId, useReactFlow } from '@xyflow/react';
 import { api, pollJob } from '../api';
 import { useCanvas, missingAssets, type WfNodeConfig } from '../store';
 import type { Shot, WorkflowNodeInfo, WorkflowParam, WorkflowRun } from '../types';
+import {
+  buildMotions, fillTemplate, DEFAULT_BOT_PROMPT,
+  MOTION_STYLES, MOTION_ENERGY, MOTION_COMBOS,
+  type Motion, type MotionStyle,
+} from '../motion';
 
 const SECTION_COLOR: Record<string, string> = {
   intro: '#94a3b8', verse: '#60a5fa', prechorus: '#a78bfa',
@@ -1339,19 +1344,6 @@ function parseClock(t: string | number): number {
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
-/** 运镜模板轮换：同一段音乐里连续几个镜头不重复，避免长视频看起来像一个镜头拉长 */
-const BOT_MOTIONS: { label: string; text: string }[] = [
-  { label: '中景推近', text: '半身中景正面朝向镜头开口吟唱，镜头从半身缓慢推近到胸口以上' },
-  { label: '近景特写', text: '近景特写，脸部占画面主要位置，轻声吟唱，睫毛轻颤、呼吸感明显，镜头极缓慢向右平移' },
-  { label: '仰拍爆发', text: '低角度仰拍，高音处情绪强烈、眉头微蹙，暖黄顶光与冷青环境光形成强对比，镜头轻微手持晃动' },
-  { label: '拉远全景', text: '镜头从近景缓缓拉远成全景，人物站在长廊下持续吟唱，身后灯笼成排向远处延伸' },
-  { label: '侧移跟拍', text: '侧面半身，镜头沿弧线缓慢横移绕到正前方，衣袂与碎发被夜风带动' },
-  { label: '过肩注视', text: '过肩视角的浅景深构图，焦点始终落在人物脸上，背景灯笼化作流动光斑' },
-];
-
-const DEFAULT_BOT_PROMPT =
-  '图1中身穿月白刺绣立领长衫的古风女子（严格保持参考图的脸型、眉形、眼睛、鼻梁与唇形不变），'
-  + '{motion}，口型与音频严格同步，电影级柔光，浅景深，稳定运镜，无字幕无水印';
 
 type BotShotStatus = 'idle' | 'running' | 'done' | 'error';
 type BotShot = {
@@ -1361,6 +1353,9 @@ type BotShot = {
   end: string;
   seconds: number;
   prompt: string;
+  /** 本镜的运镜原文，换运镜时用它定位并在提示词里替换 */
+  motion?: string;
+  motionLabel?: string;
   seed: number;
   status: BotShotStatus;
   progress?: number;
@@ -1392,6 +1387,13 @@ export function BotStageNode() {
   const [aspect, setAspect] = useState(String(nodeData?.aspect ?? '9:16 (Portrait Widescreen)'));
   const [seed0, setSeed0] = useState(Number(nodeData?.baseSeed ?? params.seed ?? 2026112501));
   const [tpl, setTpl] = useState(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT));
+  /** 运镜风格与幅度：决定拆分镜时分配哪些景别/机位/运动 */
+  const [motionStyle, setMotionStyle] = useState<MotionStyle>(
+    (['mix', 'story', 'emotion', 'stage'] as MotionStyle[]).includes(nodeData?.motionStyle) ? nodeData.motionStyle : 'mix',
+  );
+  const [motionEnergy, setMotionEnergy] = useState<0 | 1 | 2>(
+    [0, 1, 2].includes(Number(nodeData?.motionEnergy)) ? (Number(nodeData.motionEnergy) as 0 | 1 | 2) : 1,
+  );
   const [autoStitch, setAutoStitch] = useState(nodeData?.autoStitch !== false);
   const [title, setTitle] = useState(String(nodeData?.title ?? ''));
   const [fade, setFade] = useState(Number(nodeData?.fade ?? 0.6));
@@ -1486,18 +1488,21 @@ export function BotStageNode() {
     // 均分后每镜太短就先减镜数，避免出现 1 秒的碎片镜头
     while (n > 1 && Math.floor(avail / n) < Math.min(3, perSec)) n -= 1;
     const base = Math.floor(avail / n);
+    const motions = buildMotions(n, { style: motionStyle, energy: motionEnergy, seed: seed0 });
 
     const list: BotShot[] = [];
     let cur = s0;
     for (let i = 0; i < n; i++) {
       const len = i === n - 1 ? (s0 + avail) - cur : base;
       if (len <= 0) break;
-      const m = BOT_MOTIONS[i % BOT_MOTIONS.length];
+      const m = motions[i];
       list.push({
         n: i + 1,
         label: `镜${i + 1} · ${m.label}`,
         start: clock(cur), end: clock(cur + len), seconds: len,
-        prompt: tpl.includes('{motion}') ? tpl.replace('{motion}', m.text) : `${tpl}，${m.text}`,
+        prompt: fillTemplate(tpl, m),
+        motion: m.text,
+        motionLabel: m.label,
         seed: seed0 + i,
         status: 'idle',
       });
@@ -1510,6 +1515,7 @@ export function BotStageNode() {
     persist({
       shots: list, result: null, audioStart: start, shotSeconds: perSec, shotCount: count, useSeconds: useSec,
       megapixels: mp, steps, aspect, baseSeed: seed0, prompt: tpl, autoStitch, title, fade, outputName,
+      motionStyle, motionEnergy,
     });
     // 拆分后节点会突然变高，重新取景一次，否则底部按钮会被视口裁掉
     window.setTimeout(() => fitView({ padding: 0.1, duration: 450 }), 260);
@@ -1517,6 +1523,45 @@ export function BotStageNode() {
 
   const updateAt = (idx: number, patch: Partial<BotShot>) =>
     setShots((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+
+  /** 把新运镜写回某一镜：能定位到旧运镜就原地替换，否则按模板重拼（提示词已被手改过的情况） */
+  const applyMotion = (shot: BotShot, m: Motion): Partial<BotShot> => ({
+    label: `镜${shot.n} · ${m.label}`,
+    motion: m.text,
+    motionLabel: m.label,
+    prompt: shot.motion && shot.prompt.includes(shot.motion)
+      ? shot.prompt.replace(shot.motion, m.text)
+      : fillTemplate(tpl, m),
+  });
+
+  /** 重排全部运镜：只换景别/机位/运动，区间与种子不动，已生成的片段仍然有效 */
+  const rerollMotions = () => {
+    if (!shots.length) return;
+    const ms = buildMotions(shots.length, {
+      style: motionStyle, energy: motionEnergy, seed: (Date.now() ^ seed0) >>> 0,
+    });
+    const next = shots.map((s, i) => ({ ...s, ...applyMotion(s, ms[i]) }));
+    setShots(next);
+    persist({ shots: next });
+  };
+
+  /** 只重抽某一条的运镜，用来救「这一镜机位不好看」 */
+  const rerollShot = (idx: number) => {
+    const shot = shots[idx];
+    if (!shot) return;
+    let m = buildMotions(1, {
+      style: motionStyle, energy: motionEnergy, seed: (Date.now() ^ (idx * 7919) ^ seed0) >>> 0,
+    })[0];
+    // 骰子偶尔会抽回原来那条，重试几次，避免「点了没反应」的错觉
+    for (let k = 0; k < 4 && m.text === shot.motion; k++) {
+      m = buildMotions(1, {
+        style: motionStyle, energy: motionEnergy, seed: (Date.now() + (k + 1) * 104729) >>> 0,
+      })[0];
+    }
+    const next = shots.map((s, i) => (i === idx ? { ...s, ...applyMotion(s, m) } : s));
+    setShots(next);
+    persist({ shots: next });
+  };
 
   /** 单镜参数：只覆盖分段/种子/输出，其余沿用工作流默认 */
   const patchFor = (shot: BotShot) => {
@@ -1672,6 +1717,26 @@ export function BotStageNode() {
         <span className="muted tiny-text">≈ {Math.floor(perShotSec / 60)}分{perShotSec % 60}秒/镜</span>
       </div>
 
+      <div className="bot-speeds">
+        <span className="muted tiny-text">运镜风格</span>
+        {MOTION_STYLES.map((q) => (
+          <button key={q.id} title={q.tip}
+            className={`bot-chip${motionStyle === q.id ? ' on' : ''}`}
+            onClick={() => { setMotionStyle(q.id); persist({ motionStyle: q.id }); }}>{q.label}</button>
+        ))}
+        {shots.length > 0 && <span className="muted tiny-text">改后点 🎲 生效</span>}
+      </div>
+
+      <div className="bot-speeds">
+        <span className="muted tiny-text">动作幅度</span>
+        {MOTION_ENERGY.map((q) => (
+          <button key={q.v} title={q.tip}
+            className={`bot-chip${motionEnergy === q.v ? ' on' : ''}`}
+            onClick={() => { setMotionEnergy(q.v); persist({ motionEnergy: q.v }); }}>{q.label}</button>
+        ))}
+        <span className="muted tiny-text" title="景别、机位、运动三项都在轮换，相邻两镜不会用同一个机位">共 {MOTION_COMBOS} 种机位组合</span>
+      </div>
+
       <label className="bot-check"
         title="Veda 稀疏注意力：每镜提交时在 SageAttentionPatch 之后插一个 Veda 节点，不改工作流文件。768×1280 以上约 1.3–1.4× 提速；608 短镜头收益很小。需已安装 veda-sparse-attention">
         <input type="checkbox" checked={veda}
@@ -1701,12 +1766,17 @@ export function BotStageNode() {
         </select>
       </label>
 
-      <label className="bot-line">提示词模板（<code>{'{motion}'}</code> 会替换成运镜）
+      <label className="bot-line" title="可用占位符：{motion} 整套运镜 / {size} 景别 / {angle} 机位 / {move} 镜头运动。想完全自己写机位就只留 {size} 和 {angle}">
+        提示词模板（<code>{'{motion}'}</code> 换成整套运镜，也可拆用 <code>{'{size}'}</code> <code>{'{angle}'}</code> <code>{'{move}'}</code>）
         <textarea rows={3} value={tpl} onChange={(e) => setTpl(e.target.value)} />
       </label>
 
       <div className="row gap8 mt8" style={{ flexWrap: 'wrap' }}>
         <button className="btn" onClick={split} disabled={!audioDur || busy}>🧩 按 MP3 拆分镜</button>
+        {shots.length > 0 && (
+          <button className="btn" onClick={rerollMotions} disabled={busy}
+            title="保留每镜的区间与种子，只重新分配景别/机位/运动；已生成的片段不会失效，可只重跑不喜欢的镜">🎲 重排运镜</button>
+        )}
         {shots.length > 0
           ? <span className="muted tiny-text">
               基准种子 {seed0} · {steps} 步/{mp}MP · 共 ≈ {estLabel}
@@ -1738,8 +1808,16 @@ export function BotStageNode() {
               )}
               {s.status === 'error' && <div className="bot-shot-meta err">{s.error}</div>}
               {open === i && (
-                <textarea className="bot-shot-prompt" rows={4} value={s.prompt}
-                  onChange={(e) => updateAt(i, { prompt: e.target.value })} />
+                <>
+                  <div className="bot-shot-motion">
+                    <span className="muted tiny-text">运镜</span>
+                    <span className="bot-motion-name">{s.motionLabel || s.motion || '—'}</span>
+                    <button className="bot-mini" title="换这一镜的景别与机位（区间和种子不变）"
+                      disabled={busy} onClick={() => rerollShot(i)}>🎲</button>
+                  </div>
+                  <textarea className="bot-shot-prompt" rows={4} value={s.prompt}
+                    onChange={(e) => updateAt(i, { prompt: e.target.value })} />
+                </>
               )}
             </div>
           ))}
