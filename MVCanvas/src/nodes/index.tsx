@@ -1387,6 +1387,12 @@ const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec 
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 
+/** 旧版默认提示词写死了服装/性别；已存进画布的旧文案在加载时一次性改成跟随参考图的中性描述 */
+const stripOldWardrobe = (s: string) => s
+  .replace(/身穿月白刺绣立领长衫的古风女子/g, '人物')
+  .replace(/月白长衫古风女子/g, '人物')
+  .replace(/月白刺绣长衫女歌手/g, '歌手');
+
 type BotShotStatus = 'idle' | 'running' | 'paused' | 'done' | 'error';
 type BotShot = {
   n: number;
@@ -1428,7 +1434,7 @@ export function BotStageNode() {
   const [veda, setVeda] = useState(nodeData?.veda === true);
   const [aspect, setAspect] = useState(String(nodeData?.aspect ?? '9:16 (Portrait Widescreen)'));
   const [seed0, setSeed0] = useState(Number(nodeData?.baseSeed ?? params.seed ?? 2026112501));
-  const [tpl, setTpl] = useState(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT));
+  const [tpl, setTpl] = useState(stripOldWardrobe(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT)));
   /** 运镜风格与幅度：决定拆分镜时分配哪些景别/机位/运动 */
   const [motionStyle, setMotionStyle] = useState<MotionStyle>(
     (['mix', 'story', 'emotion', 'stage'] as MotionStyle[]).includes(nodeData?.motionStyle) ? nodeData.motionStyle : 'mix',
@@ -1469,6 +1475,11 @@ export function BotStageNode() {
   useEffect(() => {
     if (recoveredRef.current) return;
     recoveredRef.current = true;
+    // 老画布里保存的旧默认提示词也一起改掉，免得「重新载入画布」后又写回人物服装
+    const oldPrompt = nodeData?.prompt;
+    if (typeof oldPrompt === 'string' && stripOldWardrobe(oldPrompt) !== oldPrompt) {
+      persist({ prompt: stripOldWardrobe(oldPrompt) });
+    }
     if (!shots.some((s) => s.status === 'running')) return;
     const next = shots.map((s) => (s.status === 'running' ? { ...s, status: 'paused' as BotShotStatus } : s));
     setShots(next);

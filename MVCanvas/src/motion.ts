@@ -192,7 +192,7 @@ export function fillTemplate(tpl: string, m: Motion): string {
 }
 
 export const DEFAULT_BOT_PROMPT =
-  '图1中身穿月白刺绣立领长衫的古风女子（严格保持参考图的脸型、眉形、眼睛、鼻梁与唇形不变），'
+  '图1中的人物（严格保持参考图的脸型、眉形、眼睛、鼻梁与唇形不变），'
   + '{motion}，口型与音频严格同步，电影级柔光，浅景深，镜内一个连续长镜头不切换，无字幕无水印';
 
 /** 组合总数，用于界面提示 */
