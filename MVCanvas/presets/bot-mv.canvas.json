@@ -1,6 +1,6 @@
 {
   "name": "bot MV · 4×8 秒数字人",
-  "note": "素材 → 4 个 bot 镜头（各 8 秒，AudioCrop 分段的独立参数）→ 拼接成片。逐镜运行后，拼接节点会自动接住 4 段输出。",
+  "note": "素材 → 4 个 bot 镜头（各 8 秒，AudioCrop 分段的独立参数）→ 拼接成片。逐镜运行后，拼接节点会自动接住 4 段输出。 素材路径为示例，加载后请重新上传参考图与 MP3。",
   "nodes": [
     {
       "id": "bot-image",
@@ -340,12 +340,12 @@
   "assets": {
     "image": {
       "name": "character.png",
-      "path": "C:\\Users\\Administrator\\WorkBuddy\\2026-11-21-23-47-29\\MVCanvas\\workspace\\mv_bot_1125\\character.png",
+      "path": "workspace/mv_bot_1125/character.png",
       "url": "/media/mv_bot_1125/character.png"
     },
     "audio": {
       "name": "audio_1795581501515__声声慢_戏腔版.mp3",
-      "path": "C:\\Users\\Administrator\\WorkBuddy\\2026-11-21-23-47-29\\MVCanvas\\workspace\\assets\\audio_1795581501515__声声慢_戏腔版.mp3",
+      "path": "workspace/assets/audio_example.mp3",
       "url": "/media/assets/audio_1795581501515__%E5%A3%B0%E5%A3%B0%E6%85%A2_%E6%88%8F%E8%85%94%E7%89%88.mp3"
     },
     "lyrics": null

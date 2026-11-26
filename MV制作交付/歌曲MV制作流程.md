@@ -1,8 +1,8 @@
 # 本地 ComfyUI 一键制作歌曲 MV（MiniMax H3 · 自动化版）
 
-> 作者本机参考：ComfyUI 安装在 `C:\Users\Administrator\ComfyUI-Installs\ComfyUI`（核心 0.46.2 / Desktop 0.29.0，Python 3.13，torch 2.12+cu130）
+> 作者本机参考：ComfyUI 安装在 `%USERPROFILE%\ComfyUI-Installs\ComfyUI`（核心 0.46.2 / Desktop 0.29.0，Python 3.13，torch 2.12+cu130）
 > GPU：RTX 5080 Laptop **16GB 显存**；内存约 64GB；ffmpeg 8.1 已在 PATH
-> ComfyUI 实际输入/输出目录用 `COMFY_INPUT` / `COMFY_OUTPUT` 指定（作者本机为 `C:\Users\Administrator\ComfyUI-Shared\input` / `...\output`）
+> ComfyUI 实际输入/输出目录用 `COMFY_INPUT` / `COMFY_OUTPUT` 指定（作者本机为 `%USERPROFILE%\ComfyUI-Shared\input` / `...\output`）
 
 ---
 
