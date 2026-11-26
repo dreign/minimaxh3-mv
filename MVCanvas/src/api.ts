@@ -72,6 +72,8 @@ export const api = {
     workflowId: string; image?: string | null; audio?: string | null;
     prompt?: string; seed?: number; width?: number; height?: number;
     patch?: Record<string, Record<string, unknown>> | null; outputName?: string;
+    /** ⚡ Veda 稀疏注意力：提交时在 MODEL 链上插一个节点，不改工作流文件 */
+    veda?: boolean; vedaOptions?: { sparsity?: string; predictor?: string } | null;
   }) => request<{ runId: string }>('/api/workflows/run', { method: 'POST', body: JSON.stringify(payload) }),
 
   workflowRun: (id: string) => request<WorkflowRun>(`/api/workflows/run/${encodeURIComponent(id)}`),

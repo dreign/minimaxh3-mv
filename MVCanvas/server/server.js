@@ -189,6 +189,7 @@ async function api(req, res, url) {
         prompt: b.prompt || '', seed: Number(b.seed),
         width: Number(b.width) || 0, height: Number(b.height) || 0,
         patch: b.patch || null, outputName: b.outputName || '',
+        veda: !!b.veda, vedaOptions: b.vedaOptions || null,
       });
       return ok(res, { runId });
     } catch (e) { return fail(res, e.message); }

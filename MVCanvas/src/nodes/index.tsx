@@ -905,6 +905,8 @@ export function WorkflowNode() {
   const [outputName, setOutputName] = useState(cfg?.outputName ?? '');
   const [useImage, setUseImage] = useState(cfg?.useImage ?? true);
   const [useAudio, setUseAudio] = useState(cfg?.useAudio ?? true);
+  /** ⚡ Veda：只作用于本节点的运行请求，默认关 */
+  const [veda, setVeda] = useState(!!cfg?.veda);
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [error, setError] = useState('');
   const [nodes, setNodes] = useState<WorkflowNodeInfo[] | null>(null);
@@ -1017,7 +1019,7 @@ export function WorkflowNode() {
     setError('');
     // 画布预设节点：把当前控件值写回节点，保存画布 / 刷新后仍能复现
     if (cfg && nodeId) {
-      setNodeWf(nodeId, { prompt, seed, width, height, outputName, useImage, useAudio });
+      setNodeWf(nodeId, { prompt, seed, width, height, outputName, useImage, useAudio, veda });
     }
     try {
       const { runId } = await api.runWorkflow({
@@ -1030,6 +1032,8 @@ export function WorkflowNode() {
         height: hasDim ? height : 0,
         patch: patchForRun(),
         outputName: outputName || wf.name,
+        veda,
+        vedaOptions: veda ? { sparsity: '32' } : null,
       });
       setRun({ id: runId, workflowId: wf.id, workflowName: wf.name, status: 'running', stage: '排队中', progress: 0, logs: [] });
       startPoll(runId);
@@ -1163,6 +1167,19 @@ export function WorkflowNode() {
               <button className="btn tiny" title="清除本工作流的全部自定义参数"
                 onClick={() => resetAll()}>重置</button>
             )}
+          </div>
+
+          <div className={`wf-veda${veda ? ' on' : ''}`}>
+            <label className="check"
+              title="Veda 稀疏注意力：提交时在 SageAttentionPatch 之后插一个 Veda 节点，不改工作流文件。768×1280 以上约 1.3–1.4× 提速；608 短镜头下 attention 占比小，收益不明显。需已安装 veda-sparse-attention">
+              <input type="checkbox" checked={veda}
+                onChange={(e) => {
+                  setVeda(e.target.checked);
+                  if (cfg && nodeId) setNodeWf(nodeId, { veda: e.target.checked });
+                }} />
+              ⚡ Veda 稀疏注意力
+            </label>
+            <span className="muted tiny-text">{veda ? '本次运行启用' : '默认关闭 · 768+ 才划算'}</span>
           </div>
 
           {paramsOpen && (
@@ -1335,6 +1352,8 @@ export function BotStageNode() {
   const [count, setCount] = useState(String(nodeData?.shotCount ?? ''));
   const [mp, setMp] = useState(Number(nodeData?.megapixels ?? 0.6));
   const [steps, setSteps] = useState(Number(nodeData?.steps ?? 4));
+  /** ⚡ Veda：逐镜运行时都带上，默认关 */
+  const [veda, setVeda] = useState(nodeData?.veda === true);
   const [aspect, setAspect] = useState(String(nodeData?.aspect ?? '9:16 (Portrait Widescreen)'));
   const [seed0, setSeed0] = useState(Number(nodeData?.baseSeed ?? params.seed ?? 2026112501));
   const [tpl, setTpl] = useState(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT));
@@ -1497,6 +1516,8 @@ export function BotStageNode() {
           height: params.height,
           patch: patchFor(shot),
           outputName: `botstage_S${shot.n}`,
+          veda,
+          vedaOptions: veda ? { sparsity: '32' } : null,
         });
 
         let finished: WorkflowRun | null = null;
@@ -1593,6 +1614,13 @@ export function BotStageNode() {
         ))}
         <span className="muted tiny-text">≈ {Math.floor(perShotSec / 60)}分{perShotSec % 60}秒/镜</span>
       </div>
+
+      <label className="bot-check"
+        title="Veda 稀疏注意力：每镜提交时在 SageAttentionPatch 之后插一个 Veda 节点，不改工作流文件。768×1280 以上约 1.3–1.4× 提速；608 短镜头收益很小。需已安装 veda-sparse-attention">
+        <input type="checkbox" checked={veda}
+          onChange={(e) => { setVeda(e.target.checked); persist({ veda: e.target.checked }); }} />
+        ⚡ Veda 稀疏注意力{veda ? '（已启用）' : '（768+ 才划算）'}
+      </label>
 
       <label className="bot-line">画面比例
         <select value={aspect} onChange={(e) => setAspect(e.target.value)}>

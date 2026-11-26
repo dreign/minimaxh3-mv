@@ -260,6 +260,12 @@ select { min-width: 110px; }
   color: var(--text); text-align: left;
 }
 .wf-panel-meta { margin-left: auto; font-weight: 400; font-size: 10px; color: var(--muted); white-space: nowrap; }
+/* ⚡ Veda 开关：贴在参数面板标题下，默认关 */
+.wf-veda {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 4px 8px 6px; border-top: 1px dashed var(--line);
+}
+.wf-veda.on .check { color: #6d28d9; font-weight: 600; }
 .wf-caret { width: 9px; color: var(--muted); font-size: 9px; flex: none; }
 .wf-search { width: calc(100% - 16px); margin: 0 8px 6px; padding: 4px 8px; font-size: 11px; border-radius: 6px; }
 .wf-list {

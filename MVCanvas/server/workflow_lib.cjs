@@ -288,6 +288,94 @@ function extractOutputs(entry) {
   return video.length ? video : files;
 }
 
+// ---------------------------------------------------------------- Veda 稀疏注意力
+
+// 仍然输出 MODEL 的“模型改造”节点：沿这些节点往链尾走，Veda 要插在最后一个之后
+const MODEL_TRANSFORM = /(Lora|Patch|ModelSampling|Attention|Swap|BlockSwap|ModelMerge|ModelPatch)/i;
+
+/** 从某个节点出发，沿唯一下游的模型改造节点走到链尾（含起点） */
+function modelChainTail(prompt, startId) {
+  const consumersOf = (id) => Object.entries(prompt).filter(([, n]) => Object.values(n.inputs || {})
+    .some((v) => Array.isArray(v) && String(v[0]) === String(id)));
+  let cur = String(startId);
+  const seen = new Set([cur]);
+  for (let guard = 0; guard < 32; guard++) {
+    const cons = consumersOf(cur);
+    if (cons.length !== 1) break;
+    const [nextId, next] = cons[0];
+    if (seen.has(String(nextId))) break;
+    if (!MODEL_TRANSFORM.test(String(next.class_type || ''))) break;
+    seen.add(String(nextId));
+    cur = String(nextId);
+  }
+  return cur;
+}
+
+/**
+ * 把 VedaSparseAttention 插进已转换好的 API prompt：
+ * 沿 SageAttentionPatch 的 MODEL 链走到链尾（LoRA 等改造节点之后），
+ * 把链尾的所有下游改接到 Veda，Veda 再接回链尾。
+ * 不改工作流文件，只在提交前动这一次请求，所以开关关掉就完全回到原样。
+ */
+function applyVeda(prompt, oi, opts = {}) {
+  const entries = Object.entries(prompt);
+  const already = entries.find(([, n]) => n.class_type === 'VedaSparseAttention');
+  if (already) return { ok: true, existing: true, nodeId: already[0], rewired: 0 };
+  const sageAll = entries.filter(([, n]) => /SageAttentionPatch/i.test(n.class_type || ''));
+  if (!sageAll.length) {
+    return { ok: false, reason: '该工作流里没有 SageAttentionPatch 节点，定位不到 MODEL 链，无法插入 Veda' };
+  }
+  const spec = oi && oi.VedaSparseAttention;
+  if (!spec) return { ok: false, reason: 'ComfyUI 未安装 veda-sparse-attention 节点，已按原样运行' };
+
+  const consume = (id) => entries.reduce((acc, [, n]) => acc + Object.values(n.inputs || {})
+    .filter((v) => Array.isArray(v) && String(v[0]) === String(id)).length, 0);
+  // 多个 Sage 节点时，取真正被下游引用的那个
+  const [sageId] = sageAll.sort((a, b) => consume(b[0]) - consume(a[0]))[0];
+  if (!consume(sageId)) {
+    return { ok: false, reason: `SageAttentionPatch#${sageId} 的输出没有下游引用，无法插入 Veda` };
+  }
+  // 插到模型链末端（实测顺序：UNET → Sage → LoRA → Guider，Veda 应在 LoRA 之后）
+  const tailId = modelChainTail(prompt, sageId);
+  if (!consume(tailId)) {
+    return { ok: false, reason: `模型链末端 #${tailId} 没有被任何节点引用，无法插入 Veda` };
+  }
+
+  const predictorSpec = spec.input?.required?.predictor?.[1] || {};
+  const options = Array.isArray(predictorSpec.options) ? predictorSpec.options : [];
+  // ref2va 工作流优先用 r2va 预测器；节点默认值通常是 t2va，直接用会不匹配
+  const predictor = opts.predictor
+    || options.find((x) => /r2v/i.test(x))
+    || predictorSpec.default
+    || 'minimax_h3_r2va_veda_preview_fp8.safetensors';
+  const sparsity = String(opts.sparsity || '32');
+
+  const id = String(Math.max(0, ...entries.map(([k]) => Number(k) || 0)) + 1);
+  let rewired = 0;
+  for (const [, n] of entries) {
+    for (const [name, v] of Object.entries(n.inputs || {})) {
+      if (Array.isArray(v) && String(v[0]) === String(tailId)) {
+        n.inputs[name] = [id, v[1] ?? 0];
+        rewired++;
+      }
+    }
+  }
+  prompt[id] = {
+    class_type: 'VedaSparseAttention',
+    inputs: {
+      model: [String(tailId), 0],
+      predictor,
+      generated_sparsity: sparsity,
+      reference_sparsity: '32',
+      full_attention_layers: '',
+      full_attention_steps: '',
+      verbose: false,
+    },
+    _meta: { title: 'Veda 稀疏注意力' },
+  };
+  return { ok: true, nodeId: id, sageId, tailId, rewired, predictor, sparsity };
+}
+
 // ---------------------------------------------------------------- 运行
 
 function createRunStore(baseDir) {
@@ -314,6 +402,7 @@ function startRun(opts) {
   const {
     workflows, runStore, outputsDir, workflowId,
     image, audio, prompt, seed, width, height, patch, outputName, ttlSeconds = 3600,
+    veda, vedaOptions,
   } = opts;
 
   const wf = workflows.find((w) => w.id === workflowId);
@@ -386,6 +475,18 @@ function startRun(opts) {
       const nodeCount = Object.keys(apiPrompt).length;
       if (!nodeCount) throw new Error('工作流转换后没有可执行节点');
       log(`已转换 ${nodeCount} 个节点${missing.length ? `，跳过未安装类：${missing.join(',')}` : ''}`);
+
+      // ⚡ Veda：只在这次提交里插节点，不改工作流文件
+      if (veda) {
+        const r = applyVeda(apiPrompt, oi, vedaOptions || {});
+        if (r.ok) {
+          state.veda = { on: true, nodeId: r.nodeId, sparsity: r.sparsity, predictor: r.predictor };
+          log(`⚡ Veda 已接入 #${r.nodeId}（sparsity ${r.sparsity}，改接 ${r.rewired} 处，predictor ${r.predictor}）`);
+        } else {
+          state.veda = { on: false, reason: r.reason };
+          log(`⚠ Veda 未启用：${r.reason}`);
+        }
+      }
 
       setStage('提交到 ComfyUI', 0.12);
       const clientId = `mvcanvas_${randomBytes(4).toString('hex')}`;
@@ -471,6 +572,6 @@ function startRun(opts) {
 
 module.exports = {
   workflowDirs, listWorkflows, detectSlots, describeNodes, specsFor, readWidgets,
-  toApiPrompt, objectInfo,
+  toApiPrompt, applyVeda, objectInfo,
   createRunStore, startRun, extractOutputs, comfyJson, COMFY_INPUT, COMFY_OUTPUT, COMFY_URL,
 };

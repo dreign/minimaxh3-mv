@@ -148,6 +148,8 @@ const savedCanvas = loadCanvas();
   outputName?: string;
   useImage?: boolean;
   useAudio?: boolean;
+  /** ⚡ Veda 稀疏注意力开关（默认关）；只影响本节点的运行请求 */
+  veda?: boolean;
 };
 
 /** 工作流节点最近一次成功输出，供「拼接成片」节点按连线顺序收片 */
