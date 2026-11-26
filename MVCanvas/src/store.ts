@@ -6,6 +6,16 @@ import { DEFAULT_PARAMS } from './types';
 
 export type NodeKind = 'image' | 'audio' | 'lyrics' | 'analyze' | 'storyboard' | 'keyframe' | 'generate' | 'export' | 'workflow' | 'stitch' | 'botstage';
 
+/** 片名默认从 MP3 文件名取：去掉扩展名，以及上传时加的 `audio_<时间戳>_` 前缀 */
+export function songTitleFromAsset(asset: Asset | null): string {
+  if (!asset?.name) return '';
+  return asset.name
+    .replace(/\.[^.]+$/, '')
+    .replace(/^(?:image|audio|lyrics)_\d+_/, '')
+    .replace(/^[\s_\-]+|[\s_\-]+$/g, '')
+    .trim();
+}
+
 const makeNode = (id: string, kind: NodeKind, label: string, x: number, y: number) => ({
   id,
   type: kind,

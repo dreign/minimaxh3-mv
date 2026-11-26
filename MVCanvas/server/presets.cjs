@@ -67,7 +67,7 @@ function botMvCanvas({ workspace, workflowId = 'Minimax+H3+bot' }) {
     })),
     node('bot-stitch', 'stitch', '⑩ 拼接成片', 1280, 340, {
       start: '1:28',
-      title: '声声慢 · 戏腔版',
+      title: '',
       fade: 0.6,
       outputName: 'botMV_拼接',
     }),
@@ -136,13 +136,13 @@ function botMvAuto({ workspace, workflowId = 'Minimax+H3+bot' }) {
       aspect: '9:16 (Portrait Widescreen)',
       baseSeed: 2026112601,
       autoStitch: true,
-      title: '声声慢 · 戏腔版',
+      title: '',
       fade: 0.6,
       outputName: 'botMV_长视频',
       shots: [],
     }),
     node('bot-auto-stitch', 'stitch', '⑩ 拼接成片（可选）', 960, 140, {
-      start: '0:00', title: '声声慢 · 戏腔版', fade: 0.6, outputName: 'botMV_长视频_拼接',
+      start: '0:00', title: '', fade: 0.6, outputName: 'botMV_长视频_拼接',
     }),
   ];
 

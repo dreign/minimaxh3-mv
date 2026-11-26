@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Handle, Position, useNodeId, useReactFlow } from '@xyflow/react';
 import { api, pollJob } from '../api';
-import { useCanvas, missingAssets, type WfNodeConfig } from '../store';
+import { useCanvas, missingAssets, songTitleFromAsset, type WfNodeConfig } from '../store';
 import type { Shot, WorkflowNodeInfo, WorkflowParam, WorkflowRun } from '../types';
 import {
   buildMotions, fillTemplate, DEFAULT_BOT_PROMPT,
@@ -22,6 +22,32 @@ const RES_PRESETS = [
   { label: '竖 544×960', w: 544, h: 960 },
   { label: '竖 608×1080', w: 608, h: 1080 },
 ];
+
+/**
+ * 片名跟随 MP3：默认空；上传/切换歌曲后自动填成文件名（去扩展名）。
+ * 用户一旦手填就不再覆盖；把手填内容清空则恢复自动跟随。
+ * 两个「片名」入口（导演台 / 拼接成片）共用，避免各写一套规则。
+ */
+function useAutoTitle(nodeId: string | null, saved: unknown, savedEdited: unknown) {
+  const song = songTitleFromAsset(useCanvas((s) => s.assets.audio));
+  const [title, setTitle] = useState(String(saved ?? ''));
+  const [edited, setEdited] = useState(savedEdited === true);
+
+  useEffect(() => {
+    if (edited || title === song) return;
+    setTitle(song);
+    if (nodeId) useCanvas.getState().setNodeData(nodeId, { title: song, titleEdited: false });
+  }, [song, edited, title, nodeId]);
+
+  const onChange = (v: string) => {
+    const nextEdited = v.trim() !== '';
+    setTitle(v);
+    setEdited(nextEdited);
+    if (nodeId) useCanvas.getState().setNodeData(nodeId, { title: v, titleEdited: nextEdited });
+  };
+
+  return { title, onChange };
+}
 
 /** 宽高收敛到 256–2048 并对齐到 32 的倍数（ComfyUI H3 节点 width/height 步长=32）。 */
 function clampDim(n: number, fallback: number): number {
@@ -1443,7 +1469,7 @@ export function BotStageNode() {
     [0, 1, 2].includes(Number(nodeData?.motionEnergy)) ? (Number(nodeData.motionEnergy) as 0 | 1 | 2) : 1,
   );
   const [autoStitch, setAutoStitch] = useState(nodeData?.autoStitch !== false);
-  const [title, setTitle] = useState(String(nodeData?.title ?? ''));
+  const { title, onChange: setTitle } = useAutoTitle(nodeId, nodeData?.title, nodeData?.titleEdited);
   const [fade, setFade] = useState(Number(nodeData?.fade ?? 0.6));
   const [outputName, setOutputName] = useState(String(nodeData?.outputName ?? 'botMV_长视频'));
   const [shots, setShots] = useState<BotShot[]>(() => (Array.isArray(nodeData?.shots) ? nodeData.shots : []));
@@ -2002,7 +2028,7 @@ export function BotStageNode() {
       </label>
 
       <div className="param-grid mt8">
-        <label>片名（可空）<input value={title} placeholder="声声慢 · 戏腔版" onChange={(e) => setTitle(e.target.value)} /></label>
+        <label>片名（可空）<input value={title} placeholder="留空自动取 MP3 文件名" onChange={(e) => setTitle(e.target.value)} /></label>
         <label>淡入淡出<input type="number" min={0} max={2} step={0.1} value={fade}
           onChange={(e) => setFade(Number(e.target.value))} /></label>
         <label style={{ gridColumn: '1 / -1' }}>输出名<input value={outputName} onChange={(e) => setOutputName(e.target.value)} /></label>
@@ -2041,7 +2067,7 @@ export function StitchNode() {
   const [outputs, setOutputs] = useState<{ name: string; url: string }[]>([]);
   const [pick, setPick] = useState('');
   const [start, setStart] = useState(String(nodeData?.start ?? '0:00'));
-  const [title, setTitle] = useState(String(nodeData?.title ?? ''));
+  const { title, onChange: setTitle } = useAutoTitle(nodeId, nodeData?.title, nodeData?.titleEdited);
   const [fade, setFade] = useState(Number(nodeData?.fade ?? 0.6));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -2137,7 +2163,7 @@ export function StitchNode() {
         <label>原曲起点<input value={start} placeholder="1:28" onChange={(e) => setStart(e.target.value)} /></label>
         <label>淡入淡出<input type="number" min={0} max={2} step={0.1} value={fade}
           onChange={(e) => setFade(Number(e.target.value))} /></label>
-        <label style={{ gridColumn: '1 / -1' }}>片名（可空）<input value={title} placeholder="声声慢 · 戏腔版" onChange={(e) => setTitle(e.target.value)} /></label>
+        <label style={{ gridColumn: '1 / -1' }}>片名（可空）<input value={title} placeholder="留空自动取 MP3 文件名" onChange={(e) => setTitle(e.target.value)} /></label>
       </div>
 
       <button className="btn primary wide mt8" onClick={run} disabled={busy || !clips.length}>
