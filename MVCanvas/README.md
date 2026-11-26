@@ -107,7 +107,7 @@ npm start
 - **执行**：UI 工作流 → API prompt 自动转换（含 rgthree Label/Note 跳过、seed 的 `control_after_generate` 跳过、VHS 字典式 widgets），提交到 ComfyUI 后轮询 `/history`，输出文件自动拷到 `workspace/outputs/` 并在节点里播放/下载。
 - **节点参数面板**：节点下半部分有「⚙ 节点参数」，按 ComfyUI 的 `/object_info` 把工作流里**每个节点**的 widget 参数渲染成表单——下拉（枚举）、数字（带 min/max/step）、勾选框、文本框/多行文本自动区分；只列真正可改的项（连线驱动的输入、已被上方图/音/提示词/种子/宽高接管的项会自动隐藏），支持搜索、按节点折叠、改动项高亮与单项 `↺` 还原、整条工作流「重置」。改完直接点运行，值就以 `patch` 形式提交，并且按工作流分别存 localStorage，刷新/重开还在。
 - **兜底**：非常规参数也能用请求里的 `patch`（`{ "节点id": { "输入名": 值 } }`）直接覆盖，等价于手动改节点——面板就是这个 patch 的可视化版本。
-- **每个节点独立绑定**：工作流节点也可以自带配置（`node.data.wf = { workflowId, patch, prompt, seed, width, height, outputName, veda }`）。有这份配置时，节点的下拉框与参数面板只读写自己这一份，不再碰全局选中项——所以同一张画布上可以放 4 个都用 `Minimax+H3+bot` 的节点，各自截取歌曲不同的 8 秒，互不干扰。`veda` 是每个节点自己的稀疏注意力开关，默认关。
+- **每个节点独立绑定**：工作流节点也可以自带配置（`node.data.wf = { workflowId, patch, prompt, seed, width, height, outputName, veda, refImage2, refImage2Name }`）。有这份配置时，节点的下拉框与参数面板只读写自己这一份，不再碰全局选中项——所以同一张画布上可以放 4 个都用 `Minimax+H3+bot` 的节点，各自截取歌曲不同的 8 秒，互不干扰。`veda` 是每个节点自己的稀疏注意力开关，默认关；`refImage2` 是第二张参考图（可选，接到 `ref_images.ref_image_1`）。
 
 ### ⑩ 拼接成片 + 一键生成 bot MV 画布
 
@@ -232,7 +232,7 @@ workspace/outputs/<job>_MV.mp4  ← /media/... 以 Range 方式回传给 <video>
 | `GET /api/outputs` | 成片列表 |
 | `GET /api/workflows` | 扫描 ComfyUI workflows 目录，返回选项 + 可绑定槽位（`?refresh=1` 强制重扫） |
 | `GET /api/workflows/:id/nodes` | 该工作流每节点的可编辑参数清单（类型/当前值/枚举/min/max），供参数面板渲染 |
-| `POST /api/workflows/run` | 运行指定工作流：`{workflowId,image,audio,prompt,seed,width,height,patch,outputName,veda,vedaOptions}`；`veda:true` 时提交前往 MODEL 链末（LoRA 之后）插 `VedaSparseAttention`，只改这次请求、不动工作流文件 |
+| `POST /api/workflows/run` | 运行指定工作流：`{workflowId,image,image2,audio,prompt,seed,width,height,patch,outputName,veda,vedaOptions}`；`image2` 会在 `ref_images.ref_image_1` 上补一个 LoadImage（只改本次请求）；`veda:true` 时提交前往 MODEL 链末（LoRA 之后）插 `VedaSparseAttention`，同样不动工作流文件 |
 | `GET /api/workflows/run/:id` | 工作流运行状态/日志/输出文件 |
 | `GET /api/uploads` | 已上传素材清单（供工作流节点挑选） |
 | `GET /api/presets/bot-mv` | bot MV 画布预设：带真实素材路径的节点/连线/参数 |

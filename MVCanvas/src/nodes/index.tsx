@@ -907,6 +907,11 @@ export function WorkflowNode() {
   const [useAudio, setUseAudio] = useState(cfg?.useAudio ?? true);
   /** ⚡ Veda：只作用于本节点的运行请求，默认关 */
   const [veda, setVeda] = useState(!!cfg?.veda);
+  /** 第二张参考图（可选）：接到 ref_images.ref_image_1，用于服装/场景补充 */
+  const [refImage2, setRefImage2] = useState(cfg?.refImage2 || '');
+  const [refImage2Name, setRefImage2Name] = useState(cfg?.refImage2Name || '');
+  const [refBusy, setRefBusy] = useState(false);
+  const ref2Ref = useRef<HTMLInputElement>(null);
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [error, setError] = useState('');
   const [nodes, setNodes] = useState<WorkflowNodeInfo[] | null>(null);
@@ -1013,18 +1018,35 @@ export function WorkflowNode() {
     return Object.keys(out).length ? out : null;
   };
 
+  const pickRef2 = async (file?: File) => {
+    if (!file) return;
+    setRefBusy(true); setError('');
+    try {
+      const a = await api.upload('image', file);
+      setRefImage2(a.path);
+      setRefImage2Name(file.name);
+      if (nodeId) setNodeWf(nodeId, { refImage2: a.path, refImage2Name: file.name });
+    } catch (e: any) { setError(e.message); }
+    finally { setRefBusy(false); }
+  };
+  const clearRef2 = () => {
+    setRefImage2(''); setRefImage2Name('');
+    if (nodeId) setNodeWf(nodeId, { refImage2: '', refImage2Name: '' });
+  };
+
   const onRun = async () => {
     if (!wf) { setError('请选择工作流'); return; }
     if (!wf.readable) { setError('该工作流文件无法解析，请重新导出'); return; }
     setError('');
     // 画布预设节点：把当前控件值写回节点，保存画布 / 刷新后仍能复现
     if (cfg && nodeId) {
-      setNodeWf(nodeId, { prompt, seed, width, height, outputName, useImage, useAudio, veda });
+      setNodeWf(nodeId, { prompt, seed, width, height, outputName, useImage, useAudio, veda, refImage2, refImage2Name });
     }
     try {
       const { runId } = await api.runWorkflow({
         workflowId: wf.id,
         image: hasImage && useImage ? (assets.image?.path || null) : null,
+        image2: refImage2 || null,
         audio: hasAudio && useAudio ? (assets.audio?.path || null) : null,
         prompt: hasPrompt ? prompt : '',
         seed,
@@ -1132,6 +1154,19 @@ export function WorkflowNode() {
       <div className="muted tiny-text">
         图：{hasImage ? (assets.image ? assets.image.name.slice(-24) : '未上传，将用工作流自带默认图') : '不适用'}
         ；音：{hasAudio ? (assets.audio ? assets.audio.name.slice(-24) : '未上传，将用工作流自带默认音频') : '不适用'}
+      </div>
+
+      {/* 第二张参考图：接到 H3 的 ref_images.ref_image_1，提示词里用 <Picture 2> 指代 */}
+      <div className="row gap8 mt8" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <span className="muted tiny-text">参考图 2</span>
+        <button className="btn tiny" onClick={() => ref2Ref.current?.click()} disabled={refBusy}
+          title="可选：接第二张参考图（服装 / 场景 / 配饰），提示词里用 <Picture 2> 指代">
+          {refBusy ? '上传中…' : refImage2 ? '更换' : '＋ 加一张'}
+        </button>
+        {refImage2 && <button className="btn tiny" onClick={clearRef2}>清除</button>}
+        {refImage2 && <span className="muted tiny-text" title={refImage2}>{refImage2Name.slice(-18)}</span>}
+        <input ref={ref2Ref} type="file" accept="image/*" hidden
+          onChange={(e) => { pickRef2(e.target.files?.[0]); e.currentTarget.value = ''; }} />
       </div>
 
       {hasPrompt && (
@@ -1367,12 +1402,33 @@ export function BotStageNode() {
   const [stitching, setStitching] = useState(false);
   const [error, setError] = useState('');
   const [open, setOpen] = useState<number | null>(null);
+  /** 第二张参考图（可选）：所有镜头共用，接到 ref_images.ref_image_1 */
+  const [refImage2, setRefImage2] = useState(nodeData?.refImage2 || '');
+  const [refImage2Name, setRefImage2Name] = useState(nodeData?.refImage2Name || '');
+  const [refBusy, setRefBusy] = useState(false);
+  const ref2Ref = useRef<HTMLInputElement>(null);
   /** 工作流里角色节点的 id：换工作流版本也能定位 AudioCrop / 分辨率 / 种子 / 合成节点 */
   const [roles, setRoles] = useState({ crop: '177', res: '115', seed: '129', combine: '142', sched: '124' });
   const cancelRef = useRef(false);
 
   const persist = (patch: Record<string, unknown>) => {
     if (nodeId) useCanvas.getState().setNodeData(nodeId, patch);
+  };
+
+  const pickRef2 = async (file?: File) => {
+    if (!file) return;
+    setRefBusy(true); setError('');
+    try {
+      const a = await api.upload('image', file);
+      setRefImage2(a.path);
+      setRefImage2Name(file.name);
+      persist({ refImage2: a.path, refImage2Name: file.name });
+    } catch (e: any) { setError(e.message); }
+    finally { setRefBusy(false); }
+  };
+  const clearRef2 = () => {
+    setRefImage2(''); setRefImage2Name('');
+    persist({ refImage2: '', refImage2Name: '' });
   };
 
   // MP3 真实时长：决定能拆几镜（不靠猜，进来就读 ffprobe）
@@ -1509,6 +1565,7 @@ export function BotStageNode() {
         const { runId } = await api.runWorkflow({
           workflowId,
           image: assets.image.path,
+          image2: refImage2 || null,
           audio: assets.audio.path,
           prompt: shot.prompt,
           seed: shot.seed,
@@ -1621,6 +1678,19 @@ export function BotStageNode() {
           onChange={(e) => { setVeda(e.target.checked); persist({ veda: e.target.checked }); }} />
         ⚡ Veda 稀疏注意力{veda ? '（已启用）' : '（768+ 才划算）'}
       </label>
+
+      {/* 第二张参考图：所有镜头共用，接到 ref_images.ref_image_1 */}
+      <div className="row gap8 mt8" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <span className="muted tiny-text">参考图 2</span>
+        <button className="btn tiny" onClick={() => ref2Ref.current?.click()} disabled={refBusy}
+          title="可选：所有镜头共用第二张参考图（服装 / 场景），提示词里用 <Picture 2> 指代">
+          {refBusy ? '上传中…' : refImage2 ? '更换' : '＋ 加一张'}
+        </button>
+        {refImage2 && <button className="btn tiny" onClick={clearRef2}>清除</button>}
+        {refImage2 && <span className="muted tiny-text" title={refImage2}>{refImage2Name.slice(-18)}</span>}
+        <input ref={ref2Ref} type="file" accept="image/*" hidden
+          onChange={(e) => { pickRef2(e.target.files?.[0]); e.currentTarget.value = ''; }} />
+      </div>
 
       <label className="bot-line">画面比例
         <select value={aspect} onChange={(e) => setAspect(e.target.value)}>

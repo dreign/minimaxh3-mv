@@ -150,6 +150,9 @@ const savedCanvas = loadCanvas();
   useAudio?: boolean;
   /** ⚡ Veda 稀疏注意力开关（默认关）；只影响本节点的运行请求 */
   veda?: boolean;
+  /** 第二张参考图（可选）：接到 H3 的 ref_images.ref_image_1，用于服装/场景补充 */
+  refImage2?: string;
+  refImage2Name?: string;
 };
 
 /** 工作流节点最近一次成功输出，供「拼接成片」节点按连线顺序收片 */

@@ -185,7 +185,7 @@ async function api(req, res, url) {
       const runId = wfLib.startRun({
         workflows, runStore: wfRuns, outputsDir: OUTPUTS,
         workflowId: b.workflowId,
-        image: b.image || null, audio: b.audio || null,
+        image: b.image || null, image2: b.image2 || null, audio: b.audio || null,
         prompt: b.prompt || '', seed: Number(b.seed),
         width: Number(b.width) || 0, height: Number(b.height) || 0,
         patch: b.patch || null, outputName: b.outputName || '',

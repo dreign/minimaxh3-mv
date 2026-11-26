@@ -273,6 +273,33 @@ function copyToComfyInput(srcPath) {
   return path.basename(dest);
 }
 
+/**
+ * 第二张参考图：工作流里只有一个 LoadImage 时，图没有地方落。
+ * 这时找带 ref_images 多图端口的节点（MiniMaxH3ReferenceToVideo 等），
+ * 临时补一个 LoadImage 接到下一个 ref_image_N —— 同样只改这一次请求。
+ */
+function attachExtraRefImage(prompt, oi, imageName) {
+  const targets = Object.entries(prompt).filter(([, n]) => {
+    const specs = specsFor(n.class_type, oi) || [];
+    return specs.some((s) => /^ref_images$/i.test(s.name));
+  });
+  if (!targets.length) {
+    return { ok: false, reason: '该工作流的模型节点没有 ref_images 多图端口，第二张图用不上' };
+  }
+
+  const [targetId, target] = targets[0];
+  const used = Object.keys(target.inputs || {})
+    .map((k) => /^ref_images\.ref_image_(\d+)$/.exec(k))
+    .filter(Boolean)
+    .map((m) => Number(m[1]));
+  const slot = `ref_images.ref_image_${used.length ? Math.max(...used) + 1 : 0}`;
+
+  const id = String(Math.max(0, ...Object.keys(prompt).map((k) => Number(k) || 0)) + 1);
+  prompt[id] = { class_type: 'LoadImage', inputs: { image: imageName }, _meta: { title: '参考图2' } };
+  target.inputs[slot] = [id, 0];
+  return { ok: true, nodeId: id, targetId, slot };
+}
+
 /** 从 history 条目里提取输出文件（视频优先），返回 [{filename, subfolder, type}] */
 function extractOutputs(entry) {
   const files = [];
@@ -401,7 +428,7 @@ function createRunStore(baseDir) {
 function startRun(opts) {
   const {
     workflows, runStore, outputsDir, workflowId,
-    image, audio, prompt, seed, width, height, patch, outputName, ttlSeconds = 3600,
+    image, image2, audio, prompt, seed, width, height, patch, outputName, ttlSeconds = 3600,
     veda, vedaOptions,
   } = opts;
 
@@ -440,11 +467,21 @@ function startRun(opts) {
       const put = (node, input, value) => {
         overrides[node] = { ...(overrides[node] || {}), [input]: value };
       };
-      if (image && detected.slots.image.length && fs.existsSync(image)) {
-        const name = copyToComfyInput(image);
-        detected.slots.image.forEach((s) => put(s.node, s.input, name));
-        log(`参考图 → ${name}`);
+      // 参考图：按槽位顺序分配（不再把同一张图填满所有 LoadImage）
+      const pics = [image, image2].filter((p) => typeof p === 'string' && p && fs.existsSync(p));
+      const picNames = pics.map(copyToComfyInput);
+      detected.slots.image.forEach((s, i) => {
+        if (picNames[i]) put(s.node, s.input, picNames[i]);
+      });
+      if (picNames.length) {
+        log(`参考图 → ${picNames.join(', ')}`);
+        const spare = detected.slots.image.length - picNames.length;
+        if (spare > 0) log(`另外 ${spare} 个 LoadImage 槽位保留工作流默认图`);
       }
+      // 图比槽位多：多出来的那张在 API prompt 生成后接到 ref_images 端口
+      const extraPic = picNames.length > 1 && picNames.length > detected.slots.image.length
+        ? picNames[detected.slots.image.length]
+        : null;
       if (audio && detected.slots.audio.length && fs.existsSync(audio)) {
         const name = copyToComfyInput(audio);
         detected.slots.audio.forEach((s) => put(s.node, s.input, name));
@@ -475,6 +512,13 @@ function startRun(opts) {
       const nodeCount = Object.keys(apiPrompt).length;
       if (!nodeCount) throw new Error('工作流转换后没有可执行节点');
       log(`已转换 ${nodeCount} 个节点${missing.length ? `，跳过未安装类：${missing.join(',')}` : ''}`);
+
+      // 第二张参考图：工作流只有一个 LoadImage 时临时补一个节点接 ref_images.ref_image_N
+      if (extraPic) {
+        const r = attachExtraRefImage(apiPrompt, oi, extraPic);
+        if (r.ok) log(`第二张参考图 → #${r.targetId} 的 ${r.slot}（补 LoadImage #${r.nodeId}）`);
+        else log(`⚠ 第二张参考图未用上：${r.reason}`);
+      }
 
       // ⚡ Veda：只在这次提交里插节点，不改工作流文件
       if (veda) {
