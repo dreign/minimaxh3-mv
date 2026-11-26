@@ -363,6 +363,8 @@ async function api(req, res, url) {
       image: b.image, audio: b.audio, lyrics: b.lyrics,
       duration: b.params?.duration, shots: b.shots, params: b.params, lyricsData: b.lyricsData,
       scene: b.scene || '', useLyrics: b.useLyrics !== false,
+      // 断点续跑：复用 jobDir/shots 里已生成的镜头，只补缺失的
+      resume: !!b.resume,
     }, stateFile);
     return ok(res, { jobId });
   }
@@ -389,6 +391,8 @@ async function api(req, res, url) {
     spawnBridge({
       command: 'keyframes', jobId, jobDir,
       image: b.image, shots: b.shots, params: b.params, ...kfSize,
+      // 断点续跑：复用 jobDir/keyframes 里已生成的首帧图
+      resume: !!b.resume,
     }, stateFile);
     return ok(res, { jobId });
   }

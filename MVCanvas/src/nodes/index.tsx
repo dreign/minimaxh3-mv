@@ -554,6 +554,8 @@ export function StoryboardNode() {
 }
 
 export function KeyframeNode() {
+  const nodeId = useNodeId();
+  const nodeData = useCanvas((s) => (nodeId ? s.nodes.find((n: any) => n.id === nodeId)?.data : undefined));
   const assets = useCanvas((s) => s.assets);
   const params = useCanvas((s) => s.params);
   const shots = useCanvas((s) => s.shots);
@@ -587,14 +589,19 @@ export function KeyframeNode() {
   const sizeMatched = !keyframeSize
     || (keyframeSize.width === params.width && keyframeSize.height === params.height);
   const ready = keyframes.length >= shots.length && shots.length > 0 && sizeMatched;
+  /** 上次的首帧图任务（节点数据里持久化）：断点续跑用它找回已生成的图 */
+  const savedKfJob = String(nodeData?.kfJobId || kfJobId || '');
+  const kfBusy = kfJob?.status === 'running' || kfJob?.status === 'pending';
 
-  const run = async () => {
+  const run = async (resume = false) => {
     const missing = missingAssets(assets, ['image']);
     if (missing) { setError(missing); return; }
     if (!shots.length) { setError('请先分析生成分镜'); return; }
     setError('');
     try {
       const { jobId } = await api.keyframes({
+        jobId: resume && savedKfJob ? savedKfJob : undefined,
+        resume,
         image: assets.image!.path, shots,
         params: {
           width: params.width, height: params.height, steps: params.steps,
@@ -603,8 +610,9 @@ export function KeyframeNode() {
           keyframeWidth: params.keyframeWidth, keyframeHeight: params.keyframeHeight,
         },
       });
+      if (nodeId) useCanvas.getState().setNodeData(nodeId, { kfJobId: jobId });
       setKeyframeJob(jobId);
-      setJob(jobId, { id: jobId, status: 'pending', stage: '首帧图排队中', progress: 0, logs: [] });
+      setJob(jobId, { id: jobId, status: 'pending', stage: resume ? '首帧图续跑排队中' : '首帧图排队中', progress: 0, logs: [] });
       const done = await pollJob(jobId, (j) => setJob(jobId, j));
       if (!done || done.status !== 'done') {
         setError(done?.error || '首帧图生成失败'); return;
@@ -664,11 +672,20 @@ export function KeyframeNode() {
       {keyframeSize && !sizeMatched && (
         <div className="err mt8">首帧图尺寸为 {keyframeSize.width}×{keyframeSize.height}，与当前 {params.width}×{params.height} 不一致，请重新生成。</div>
       )}
-      <button className="btn primary wide mt8" onClick={run} disabled={kfJob?.status === 'running' || kfJob?.status === 'pending'}>
-        {kfJob && (kfJob.status === 'running' || kfJob.status === 'pending')
-          ? `生成中 ${Math.round(kfJob.progress * 100)}%`
+      <button className="btn primary wide mt8" onClick={() => run(false)} disabled={kfBusy}>
+        {kfBusy
+          ? `生成中 ${Math.round((kfJob?.progress || 0) * 100)}%`
           : ready ? `重新生成首帧（${keyframes.length} 张）` : `生成 ${shots.length} 张首帧图`}
       </button>
+      {savedKfJob && !kfBusy && !ready && (
+        <>
+          <button className="btn wide mt8" onClick={() => run(true)}
+            title="回到上次的首帧图任务，跳过已生成的图，只补做中断/失败的那些">
+            ⏵ 继续生成首帧图（跳过已完成的）
+          </button>
+          <div className="muted tiny-text mt8">断点续跑：任务 {savedKfJob.slice(-8)} · 已生成的首帧直接复用</div>
+        </>
+      )}
       {kfJob && (kfJob.status === 'running' || kfJob.status === 'pending') && (
         <div className="job-progress">
           <div className="progress-track"><div className="progress-fill" style={{ width: `${Math.round(kfJob.progress * 100)}%` }} /></div>
@@ -707,6 +724,8 @@ export function KeyframeNode() {
 }
 
 export function GenerateNode() {
+  const nodeId = useNodeId();
+  const nodeData = useCanvas((s) => (nodeId ? s.nodes.find((n: any) => n.id === nodeId)?.data : undefined));
   const params = useCanvas((s) => s.params);
   const setParam = useCanvas((s) => s.setParam);
   const assets = useCanvas((s) => s.assets);
@@ -714,26 +733,36 @@ export function GenerateNode() {
   const analysis = useCanvas((s) => s.analysis);
   const keyframes = useCanvas((s) => s.keyframes);
   const keyframeSize = useCanvas((s) => s.keyframeSize);
+  const keyframeJobId = useCanvas((s) => s.keyframeJobId);
   const setJob = useCanvas((s) => s.setJob);
   const setActiveJob = useCanvas((s) => s.setActiveJob);
   const activeJobId = useCanvas((s) => s.activeJobId);
   const job = useCanvas((s) => (activeJobId ? s.jobs[activeJobId] : undefined));
   const [error, setError] = useState('');
+  /** 上次的生成任务 id：断点续跑时用它定位 jobDir/shots 里已生成的镜头 */
+  const genJobId = String(nodeData?.genJobId || '');
+  const jobBusy = job?.status === 'pending' || job?.status === 'running';
 
-  const run = async () => {
+  const run = async (resume = false) => {
     const missing = missingAssets(assets, ['image', 'audio']);
     if (missing) { setError(missing); return; }
     if (!shots.length) { setError('请先分析生成分镜'); return; }
     setError('');
     try {
+      // 有首帧图任务就复用它的 jobId（读 keyframes_meta.json 走 i2v）；
+      // 续跑则必须回到上次生成的那个 jobDir，否则没有可复用的镜头文件。
+      const reuseJobId = resume ? genJobId : (keyframeJobId || '');
       const { jobId } = await api.generate({
+        jobId: reuseJobId || undefined,
+        resume,
         image: assets.image!.path, audio: assets.audio!.path,
         lyrics: params.useLyrics ? (assets.lyrics?.path || null) : null,
         shots, params: { ...params },
         lyricsData: params.useLyrics ? (analysis?.lyrics || []) : [],
         scene: params.scene, useLyrics: params.useLyrics,
       });
-      setJob(jobId, { id: jobId, status: 'pending', stage: '排队中', progress: 0, logs: [] });
+      if (nodeId) useCanvas.getState().setNodeData(nodeId, { genJobId: jobId });
+      setJob(jobId, { id: jobId, status: 'pending', stage: resume ? '断点续跑排队中' : '排队中', progress: 0, logs: [] });
       setActiveJob(jobId);
     } catch (e: any) { setError(e.message); }
   };
@@ -777,7 +806,20 @@ export function GenerateNode() {
           </div>
         );
       })()}
-      <button className="btn primary wide mt8" onClick={run}>生成全部镜头（{shots.length}）</button>
+      <button className="btn primary wide mt8" onClick={() => run(false)} disabled={jobBusy}>
+        {jobBusy ? `生成中 ${Math.round((job?.progress || 0) * 100)}%` : `生成全部镜头（${shots.length}）`}
+      </button>
+      {genJobId && job?.status !== 'done' && (
+        <>
+          <button className="btn wide mt8" onClick={() => run(true)} disabled={jobBusy}
+            title="回到上次的 jobDir，跳过已经落盘的镜头，只补做中断/失败的那些">
+            ⏵ 继续生成（跳过已完成的镜头）
+          </button>
+          <div className="muted tiny-text mt8">
+            断点续跑：任务 {genJobId.slice(-8)} · 已生成的镜头直接复用，不会重跑
+          </div>
+        </>
+      )}
       {job && (
         <div className="job-progress">
           <div className="progress-track"><div className="progress-fill" style={{ width: `${Math.round(job.progress * 100)}%` }} /></div>
@@ -1345,7 +1387,7 @@ const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec 
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 
-type BotShotStatus = 'idle' | 'running' | 'done' | 'error';
+type BotShotStatus = 'idle' | 'running' | 'paused' | 'done' | 'error';
 type BotShot = {
   n: number;
   label: string;
@@ -1401,8 +1443,12 @@ export function BotStageNode() {
   const [shots, setShots] = useState<BotShot[]>(() => (Array.isArray(nodeData?.shots) ? nodeData.shots : []));
   const [result, setResult] = useState<any>(nodeData?.result || null);
   const [busy, setBusy] = useState(false);
+  /** 正在按 runId 接回上次中断的镜头（此时还没有新任务进度，单独给个提示） */
+  const [attaching, setAttaching] = useState(false);
   const [stitching, setStitching] = useState(false);
   const [error, setError] = useState('');
+  /** 停止/中断后的温和提示（区别于红色报错）：告诉用户还剩多少镜、从哪继续 */
+  const [notice, setNotice] = useState('');
   const [open, setOpen] = useState<number | null>(null);
   /** 第二张参考图（可选）：所有镜头共用，接到 ref_images.ref_image_1 */
   const [refImage2, setRefImage2] = useState(nodeData?.refImage2 || '');
@@ -1416,6 +1462,18 @@ export function BotStageNode() {
   const persist = (patch: Record<string, unknown>) => {
     if (nodeId) useCanvas.getState().setNodeData(nodeId, patch);
   };
+
+  /** 刷新页面后，上次停在 running 的镜头已经没有轮询在跑了。
+   *  改成 paused：不会显示假进度，也会被「继续生成」接手（有 runId 时先接回服务端原任务）。 */
+  const recoveredRef = useRef(false);
+  useEffect(() => {
+    if (recoveredRef.current) return;
+    recoveredRef.current = true;
+    if (!shots.some((s) => s.status === 'running')) return;
+    const next = shots.map((s) => (s.status === 'running' ? { ...s, status: 'paused' as BotShotStatus } : s));
+    setShots(next);
+    persist({ shots: next });
+  }, []);
 
   const pickRef2 = async (file?: File) => {
     if (!file) return;
@@ -1511,6 +1569,7 @@ export function BotStageNode() {
     setShots(list);
     setResult(null);
     setError('');
+    setNotice('');
     setOpen(null);
     persist({
       shots: list, result: null, audioStart: start, shotSeconds: perSec, shotCount: count, useSeconds: useSec,
@@ -1591,21 +1650,70 @@ export function BotStageNode() {
     } finally { setStitching(false); }
   };
 
-  /** 串行逐镜生成（ComfyUI 单队列，串行才不会互相抢显存），跑完按开关自动合成 */
+  /** 内部中止哨兵：和真实报错区分开，停止后镜头回到 paused（可续跑），而不是标红 */
+  const STOP = '__mv_stop__';
+
+  /** 串行逐镜生成（ComfyUI 单队列，串行才不会互相抢显存），跑完按开关自动合成。
+   *  只跑 indices 里没完成的镜头，因此「继续生成」天然不会重跑已完成的镜。 */
   const runShots = async (indices: number[]) => {
     if (busy) return;
     if (!assets.image?.path) { setError('缺少角色参考图'); return; }
     if (!assets.audio?.path) { setError('缺少歌曲 MP3'); return; }
     if (!indices.length) { setError('先拆分镜'); return; }
-    setBusy(true); setError(''); cancelRef.current = false;
+    setBusy(true); setError(''); setNotice(''); cancelRef.current = false;
     let list = [...shots];
+    const setOne = (idx: number, patch: Partial<BotShot>) => {
+      list = list.map((s, i) => (i === idx ? { ...s, ...patch } : s));
+      setShots(list);
+    };
+
+    /** 断点接续：上次中断的那一镜，服务端可能还在跑（甚至已跑完）。
+     *  能接回就接回，接不回来才重新提交，避免白跑一遍 GPU。 */
+    const attachRun = async (idx: number, runId: string): Promise<'done' | 'lost'> => {
+      let r: WorkflowRun | null = null;
+      try { r = await api.workflowRun(runId); } catch { return 'lost'; }
+      if (!r || r.status === 'error') return 'lost';
+      // 服务端重启后残留的 running 状态：超过 45 分钟视为失效，直接重跑
+      if (r.status === 'running' && r.createdAt && Date.now() - r.createdAt > 45 * 60 * 1000) return 'lost';
+      setOne(idx, { status: 'running', progress: r.progress || 0, error: undefined });
+      for (let k = 0; k < 3200; k++) {
+        if (cancelRef.current) throw new Error(STOP);
+        if (r.status === 'done') {
+          const primary = r.result?.primary;
+          if (!primary?.url) return 'lost';
+          setOne(idx, {
+            status: 'done', progress: 1, url: primary.url, name: primary.name,
+            elapsed: r.elapsed, runId: r.id, error: undefined,
+          });
+          persist({ shots: list });
+          return 'done';
+        }
+        await sleep(1500);
+        try { r = await api.workflowRun(runId); } catch { return 'lost'; }
+        if (r.status === 'running') setOne(idx, { progress: r.progress || 0 });
+        else if (r.status === 'error') return 'lost';
+      }
+      return 'lost';
+    };
+
     try {
       for (const idx of indices) {
         if (cancelRef.current) break;
-        const shot = list[idx];
-        if (!shot) continue;
-        list = list.map((s, i) => (i === idx ? { ...s, status: 'running', progress: 0, error: undefined } : s));
-        setShots(list);
+        let shot = list[idx];
+        if (!shot || shot.status === 'done') continue;
+
+        // 上次中断但服务端有对应 runId：先尝试接回
+        if (shot.status === 'paused' && shot.runId) {
+          setAttaching(true);
+          let attached: 'done' | 'lost' = 'lost';
+          try { attached = await attachRun(idx, shot.runId); }
+          finally { setAttaching(false); }
+          if (attached === 'done') continue;
+          shot = list[idx];
+        }
+
+        setOne(idx, { status: 'running', progress: 0, error: undefined, url: undefined, name: undefined });
+        persist({ shots: list });
 
         const { runId } = await api.runWorkflow({
           workflowId,
@@ -1621,10 +1729,13 @@ export function BotStageNode() {
           veda,
           vedaOptions: veda ? { sparsity: '32' } : null,
         });
+        // runId 立刻落盘：刷新/关页后还能靠它接回这一镜
+        setOne(idx, { runId });
+        persist({ shots: list });
 
         let finished: WorkflowRun | null = null;
         for (let k = 0; k < 3200; k++) {
-          if (cancelRef.current) throw new Error('已停止');
+          if (cancelRef.current) throw new Error(STOP);
           await sleep(1500);
           const r = await api.workflowRun(runId);
           if (r.status === 'running') {
@@ -1639,27 +1750,40 @@ export function BotStageNode() {
         if (!finished) throw new Error(`镜${shot.n} 超时未返回`);
         const primary = finished.result?.primary;
         if (!primary?.url) throw new Error(`镜${shot.n} 没有拿到视频输出`);
-        list = list.map((s, i) => (i === idx ? {
-          ...s, status: 'done', progress: 1,
-          url: primary.url, name: primary.name, elapsed: finished!.elapsed, runId: finished!.id,
-        } : s));
-        setShots(list);
+        setOne(idx, {
+          status: 'done', progress: 1,
+          url: primary.url, name: primary.name, elapsed: finished.elapsed, runId: finished.id,
+        });
         persist({ shots: list });
       }
       if (autoStitch && !cancelRef.current && list.length && list.every((s) => s.status === 'done')) {
         await doStitch(list);
       }
     } catch (e: any) {
-      const msg = e.message || '生成失败';
-      setError(msg);
-      list = list.map((s) => (s.status === 'running' ? { ...s, status: 'error', error: msg } : s));
-      setShots(list);
-      persist({ shots: list });
+      const msg = String(e?.message || '生成失败');
+      if (msg === STOP || cancelRef.current) {
+        // 用户主动停止：正在跑的那一镜退回 paused，点「继续生成」可以接着来
+        list = list.map((s) => (s.status === 'running' ? { ...s, status: 'paused' } : s));
+        setShots(list);
+        persist({ shots: list });
+        const dn = list.filter((s) => s.status === 'done').length;
+        setNotice(`已停止 · 已完成 ${dn}/${list.length} 镜，点「继续生成」接着跑（已完成的不会重跑）`);
+      } else {
+        setError(msg);
+        list = list.map((s) => (s.status === 'running' ? { ...s, status: 'error', error: msg } : s));
+        setShots(list);
+        persist({ shots: list });
+        const dn = list.filter((s) => s.status === 'done').length;
+        if (dn) setNotice(`已生成 ${dn}/${list.length} 镜；排除上面的问题后点「继续生成」，会从断点那一镜接着跑`);
+      }
     } finally { setBusy(false); }
   };
 
   const stop = () => { cancelRef.current = true; };
   const readyToStitch = shots.length > 0 && shots.every((s) => s.status === 'done');
+  /** 还没收片的镜头（idle/error/paused），「继续生成」只跑这些 */
+  const pendingIdx = shots.map((s, i) => (s.status === 'done' ? -1 : i)).filter((i) => i >= 0);
+  const nextPending = pendingIdx.length ? shots[pendingIdx[0]] : null;
   const outputUrl = result?.url ? mediaUrl(result.url) : '';
   // 实测标定（608×1056 / 192 帧）：8 步 257s、4 步 181s、4 步@0.45MP 124s
   // 固定开销（装载 + VAE 解码 + 封装）随像素线性，采样单步近似按像素^1.4 增长
@@ -1800,6 +1924,11 @@ export function BotStageNode() {
               {s.status === 'running' && (
                 <div className="bot-bar"><i style={{ width: `${Math.round((s.progress || 0) * 100)}%` }} /></div>
               )}
+              {s.status === 'paused' && (
+                <div className="bot-shot-meta">
+                  ⏸ 上次中断{(s.progress || 0) > 0 ? `（约 ${Math.round((s.progress || 0) * 100)}%）` : ''} · 点「继续生成」接着跑
+                </div>
+              )}
               {s.status === 'done' && (
                 <div className="bot-shot-meta">
                   ✅ {s.elapsed ? `${s.elapsed}s · ` : ''}{s.name || '已完成'}
@@ -1826,12 +1955,25 @@ export function BotStageNode() {
 
       <div className="row gap8 mt8" style={{ flexWrap: 'wrap' }}>
         <button className="btn primary" style={{ flex: 1 }}
-          onClick={() => runShots(shots.map((_, i) => i))}
+          onClick={() => runShots(pendingIdx)}
           disabled={busy || !shots.length || readyToStitch}>
-          {busy ? `生成中 ${doneCount}/${shots.length}…` : readyToStitch ? '全部镜头已生成' : `▶ 逐镜生成 ${shots.length} 镜`}
+          {busy
+            ? (attaching ? '↻ 接续上次的镜头…' : `生成中 ${doneCount}/${shots.length}…`)
+            : !shots.length ? '先拆分镜'
+              : readyToStitch ? '全部镜头已生成'
+                : doneCount > 0
+                  ? `⏵ 继续生成（剩 ${pendingIdx.length} 镜${nextPending ? ` · 从镜${nextPending.n}` : ''}）`
+                  : `▶ 逐镜生成 ${shots.length} 镜`}
         </button>
         {busy && <button className="btn" onClick={stop}>⏹ 停止</button>}
       </div>
+
+      {shots.length > 0 && !readyToStitch && doneCount > 0 && (
+        <div className="muted tiny-text mt8">
+          断点续跑：已完成的 {doneCount} 镜不会重跑；中断/失败的镜会从原任务接回，接不回来才重新生成。
+        </div>
+      )}
+      {notice && <div className="bot-notice">{notice}</div>}
 
       <label className="bot-check">
         <input type="checkbox" checked={autoStitch} onChange={(e) => setAutoStitch(e.target.checked)} />

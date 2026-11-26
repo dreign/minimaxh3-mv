@@ -330,6 +330,11 @@ textarea.wf-input { resize: vertical; line-height: 1.35; }
 .bot-line textarea { width: 100%; resize: vertical; font-size: 11px; }
 .bot-check { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; }
 .bot-check input { width: auto; }
+/* 停止/中断后的续跑提示：比红色报错温和，提示还剩几镜、从哪继续 */
+.bot-notice {
+  margin-top: 8px; font-size: 10.5px; line-height: 1.5; color: #92400e;
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 5px 8px;
+}
 
 .bot-list {
   display: flex; flex-direction: column; gap: 5px; margin-top: 8px;
@@ -337,6 +342,7 @@ textarea.wf-input { resize: vertical; line-height: 1.35; }
 }
 .bot-shot { border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; background: #fbfcfe; }
 .bot-shot.running { border-color: #fbbf24; background: #fffbeb; }
+.bot-shot.paused { border-color: #fdba74; background: #fff7ed; }
 .bot-shot.done { border-color: #bbf7d0; background: #f0fdf4; }
 .bot-shot.error { border-color: #fecaca; background: #fef2f2; }
 .bot-shot-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -350,6 +356,7 @@ textarea.wf-input { resize: vertical; line-height: 1.35; }
 .bot-mini:disabled { opacity: .45; cursor: not-allowed; }
 .bot-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: #cbd5e1; }
 .bot-dot.running { background: #f59e0b; }
+.bot-dot.paused { background: #fb923c; }
 .bot-dot.done { background: #22c55e; }
 .bot-dot.error { background: #ef4444; }
 .bot-bar { height: 3px; border-radius: 2px; background: #fde68a; overflow: hidden; margin-top: 4px; }

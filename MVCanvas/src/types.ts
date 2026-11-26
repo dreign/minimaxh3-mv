@@ -150,6 +150,8 @@ export interface WorkflowRun {
   logs: string[];
   error?: string;
   elapsed?: number;
+  /** 提交时间戳（ms）：刷新后据此判断残留的 running 是否已失效 */
+  createdAt?: number;
   result?: {
     files: { name: string; url: string }[];
     primary: { name: string; url: string };

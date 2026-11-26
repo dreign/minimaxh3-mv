@@ -43,7 +43,8 @@ export const api = {
       method: 'POST', body: JSON.stringify(payload),
     }),
 
-  keyframes: (payload: { jobId?: string; image: string; shots: any[]; params: Record<string, unknown> }) =>
+  /** 逐镜首帧图；传 resume=true 时复用该 job 已生成的首帧（断点续跑） */
+  keyframes: (payload: { jobId?: string; image: string; shots: any[]; params: Record<string, unknown>; resume?: boolean }) =>
     request<{ jobId: string }>('/api/keyframes', { method: 'POST', body: JSON.stringify(payload) }),
 
   keyframesResult: (jobId: string) =>
@@ -54,6 +55,8 @@ export const api = {
     jobId?: string;
     image: string | null; audio: string | null; lyrics: string | null;
     shots: Shot[]; params: Record<string, unknown>; lyricsData: { t: number; text: string }[]; scene?: string; useLyrics?: boolean;
+    /** 断点续跑：jobId 对应目录里已有的镜头文件直接复用，只补缺失的 */
+    resume?: boolean;
   }) => request<{ jobId: string }>('/api/generate', { method: 'POST', body: JSON.stringify(payload) }),
 
   compose: (payload: { jobId: string; audio: string; lyricsData: { t: number; text: string }[]; params: Record<string, unknown>; useLyrics?: boolean }) =>

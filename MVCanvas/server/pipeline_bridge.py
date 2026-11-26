@@ -374,16 +374,32 @@ def cmd_keyframes(cfg: dict, state_path: str):
 
     keyframe_files = []
     total = len(shots)
+    resume = bool(cfg.get("resume"))
+    reused = 0
     for i, shot in enumerate(shots, 1):
+        dst = kf_dir / f"keyframe_{i:02d}.png"
+        input_name = f"mvcanvas_{job_id}_kf_{i:02d}.png"
+        if resume and dst.is_file() and dst.stat().st_size > 1024:
+            # 续跑：图已在 job 目录里，只需保证 ComfyUI input 里也有（i2v 要从 input 读）
+            if not (m.COMFY_INPUT / input_name).is_file():
+                shutil.copy2(dst, m.COMFY_INPUT / input_name)
+            keyframe_files.append({
+                "index": i,
+                "file": f"keyframes/keyframe_{i:02d}.png",
+                "url": f"/media/jobs/{job_id}/keyframes/keyframe_{i:02d}.png",
+                "inputName": input_name,
+            })
+            reused += 1
+            emit(state_path, f"跳过首帧 {i}/{total}", 0.05 + 0.9 * i / total,
+                 f"复用已生成的 {dst.name}")
+            continue
         emit(state_path, f"生成首帧 {i}/{total}", 0.05 + 0.9 * (i - 1) / total,
              f"镜头 #{i} 首帧 · H3 Image {size_note}")
         fp = frame_prompt_for(shot)
         pr = build_keyframe_prompt(shot, args, ref_name, fp)
         img = submit_and_wait_image(pr, m.COMFY_OUTPUT)
         # 复制到 job 目录与 ComfyUI input（i2v 的 LoadImage 从 input 读）
-        dst = kf_dir / f"keyframe_{i:02d}.png"
         shutil.copy2(img, dst)
-        input_name = f"mvcanvas_{job_id}_kf_{i:02d}.png"
         shutil.copy2(img, m.COMFY_INPUT / input_name)
         keyframe_files.append({
             "index": i,
@@ -405,7 +421,9 @@ def cmd_keyframes(cfg: dict, state_path: str):
               "width": args.width, "height": args.height,
               "sourceWidth": gen_w, "sourceHeight": gen_h}
     write_state(state_path, status="done", stage="首帧图完成", progress=1.0,
-                result=result, logs=[f"全部 {total} 张首帧图生成完成（H3 Image {size_note}）"])
+                result=result,
+                logs=[f"全部 {total} 张首帧图生成完成（H3 Image {size_note}）"
+                      + (f"，其中 {reused} 张续跑复用" if reused else "")])
     print("RESULT " + json.dumps(result, ensure_ascii=False), flush=True)
 
 
@@ -469,7 +487,20 @@ def cmd_generate(cfg: dict, state_path: str):
 
     shot_files = []
     total = len(shots)
+    # 断点续跑：上次中断时已落盘的镜头直接复用，不再占 GPU 重跑
+    resume = bool(cfg.get("resume"))
+    reused = 0
+    if resume:
+        emit(state_path, "断点续跑", 0.08, "已生成的镜头将直接复用，只补做缺失的镜头")
     for i, shot in enumerate(shots, 1):
+        dst = shot_dir / f"shot_{i:02d}.mp4"
+        rel = dst.relative_to(job_dir).as_posix()
+        if resume and dst.is_file() and dst.stat().st_size > 4096:
+            shot_files.append(rel)
+            reused += 1
+            emit(state_path, f"跳过镜头 {i}/{total}", 0.08 + 0.84 * i / total,
+                 f"复用已生成的 {dst.name}")
+            continue
         emit(state_path, f"生成镜头 {i}/{total}", 0.08 + 0.84 * (i - 1) / total,
              f"镜头 #{i} · {shot['frames']} 帧 · {shot['section']}")
         if use_i2v:
@@ -477,9 +508,8 @@ def cmd_generate(cfg: dict, state_path: str):
         else:
             prompt = m.build_shot_prompt(shot, args, ref_name)
         video = m.submit_and_wait(prompt, m.COMFY_OUTPUT)
-        dst = shot_dir / f"shot_{i:02d}.mp4"
         m.normalize_shot(video, dst, args.fps, args.width, args.height)
-        shot_files.append(str(dst.relative_to(job_dir).as_posix()))
+        shot_files.append(rel)
         emit(state_path, f"镜头 {i}/{total} 完成", 0.08 + 0.84 * i / total,
              f"已保存 {dst.name}")
 
@@ -497,7 +527,7 @@ def cmd_generate(cfg: dict, state_path: str):
 
     write_state(state_path, status="done", stage="镜头生成完成", progress=1.0,
                 result={"shots": shot_files, "duration": duration},
-                logs=[f"全部 {total} 镜生成完成"])
+                logs=[f"全部 {total} 镜生成完成" + (f"（其中 {reused} 镜续跑复用）" if reused else "")])
     print("RESULT " + json.dumps({"shots": shot_files, "duration": duration}), flush=True)
 
 
