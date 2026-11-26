@@ -178,4 +178,66 @@ function botMvAuto({ workspace, workflowId = 'Minimax+H3+bot' }) {
   };
 }
 
-module.exports = { botMvCanvas, botMvAuto, SHOTS };
+/** 默认分镜台流程画布：①参考图 ②MP3 ③歌词 → ④节拍分析 → ⑤分镜台 → ⑥首帧图 → ⑦H3 逐镜 → ⑧合成
+ *  与默认初始画布同构，区别是素材已经绑好、参数按工作区常见值收口，载入即可点「分析」开跑 */
+function storyboardFlow({ workspace }) {
+  const assetsDir = path.join(workspace, 'assets');
+  const projDir = path.join(workspace, 'mv_bot_1125');
+
+  const image = path.join(projDir, 'character.png');
+  const imageOk = fs.existsSync(image) ? image : firstFile(assetsDir, (f) => f.startsWith('image_') && /\.(png|jpe?g|webp)$/i.test(f));
+  const audio = firstFile(assetsDir, (f) => f.startsWith('audio_') && /声声慢/.test(f)) || firstFile(assetsDir, (f) => f.startsWith('audio_') && /\.mp3$/i.test(f));
+  const lyrics = firstFile(assetsDir, (f) => f.startsWith('lyrics') && /\.(lrc|txt)$/i.test(f))
+    || firstFile(assetsDir, (f) => /\.(lrc|txt)$/i.test(f));
+
+  const node = (id, kind, label, x, y, data = {}) => ({ id, type: kind, position: { x, y }, data: { kind, label, ...data } });
+
+  const nodes = [
+    node('sb-image', 'image', '① 人物参考图', 0, 40),
+    node('sb-audio', 'audio', '② 歌曲 MP3', 0, 260),
+    node('sb-lyrics', 'lyrics', '③ 歌词 LRC/TXT（可选）', 0, 450),
+    node('sb-analyze', 'analyze', '④ 节拍与歌词分析', 330, 200),
+    node('sb-storyboard', 'storyboard', '⑤ 分镜台（可编辑）', 660, 40),
+    node('sb-keyframe', 'keyframe', '⑥ 分镜首帧图', 1000, 40),
+    node('sb-generate', 'generate', '⑦ H3 镜头生成', 1340, 40),
+    node('sb-export', 'export', '⑧ 合成与导出', 1680, 220),
+    node('sb-workflow', 'workflow', '🧩 其他工作流', 1340, 660),
+  ];
+
+  const edges = [
+    { id: 'e-sb-img-analyze', source: 'sb-image', sourceHandle: 'out', target: 'sb-analyze', targetHandle: 'image', animated: true, style: { stroke: '#60a5fa' } },
+    { id: 'e-sb-aud-analyze', source: 'sb-audio', sourceHandle: 'out', target: 'sb-analyze', targetHandle: 'audio', animated: true, style: { stroke: '#60a5fa' } },
+    { id: 'e-sb-lyr-analyze', source: 'sb-lyrics', sourceHandle: 'out', target: 'sb-analyze', targetHandle: 'lyrics', animated: true, style: { stroke: '#60a5fa' } },
+    { id: 'e-sb-analyze-story', source: 'sb-analyze', target: 'sb-storyboard', animated: true, style: { stroke: '#a78bfa' } },
+    { id: 'e-sb-story-kf', source: 'sb-storyboard', target: 'sb-keyframe', animated: true, style: { stroke: '#fb923c' } },
+    { id: 'e-sb-kf-gen', source: 'sb-keyframe', target: 'sb-generate', animated: true, style: { stroke: '#f472b6' } },
+    { id: 'e-sb-gen-export', source: 'sb-generate', target: 'sb-export', animated: true, style: { stroke: '#34d399' } },
+  ];
+
+  const missing = [];
+  if (!imageOk) missing.push('人物参考图（workspace/assets）');
+  if (!audio) missing.push('歌曲 MP3（workspace/assets）');
+
+  return {
+    id: 'storyboard',
+    name: '分镜台流程 · 分析→首帧→逐镜→合成',
+    note: '默认那条完整链路：① 参考图 + ② MP3（③ 歌词可选）→ ④ 节拍分析切分镜 → ⑤ 分镜台逐镜改提示词 → ⑥ 首帧图 → ⑦ H3 逐镜生成 → ⑧ 合成。也可以直接点右上「⚡ 一键生成 MV」跑完整条。',
+    nodes,
+    edges,
+    shots: [],
+    assets: {
+      image: imageOk ? { name: path.basename(imageOk), path: imageOk, url: assetUrl(imageOk, imageOk.startsWith(projDir) ? 'mv_bot_1125' : 'assets') } : null,
+      audio: audio ? { name: path.basename(audio), path: audio, url: assetUrl(audio, 'assets') } : null,
+      lyrics: lyrics ? { name: path.basename(lyrics), path: lyrics, url: assetUrl(lyrics, 'assets') } : null,
+    },
+    params: {
+      width: 864, height: 480, fps: 24, steps: 20, turbo: false,
+      seed: 42, duration: 0, maxShots: 24,
+      useLyrics: !!lyrics, burnSubs: !!lyrics,
+      scene: '',
+    },
+    missing,
+  };
+}
+
+module.exports = { botMvCanvas, botMvAuto, storyboardFlow, SHOTS };

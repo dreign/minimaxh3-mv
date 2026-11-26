@@ -109,6 +109,14 @@ npm start
 - **兜底**：非常规参数也能用请求里的 `patch`（`{ "节点id": { "输入名": 值 } }`）直接覆盖，等价于手动改节点——面板就是这个 patch 的可视化版本。
 - **每个节点独立绑定**：工作流节点也可以自带配置（`node.data.wf = { workflowId, patch, prompt, seed, width, height, outputName, veda, refImage2, refImage2Name }`）。有这份配置时，节点的下拉框与参数面板只读写自己这一份，不再碰全局选中项——所以同一张画布上可以放 4 个都用 `Minimax+H3+bot` 的节点，各自截取歌曲不同的 8 秒，互不干扰。`veda` 是每个节点自己的稀疏注意力开关，默认关；`refImage2` 是第二张参考图（可选，接到 `ref_images.ref_image_1`）。
 
+### 📽 分镜台流程预设（默认那条链路）
+
+顶部 **📽 分镜台流程**（`GET /api/presets/storyboard`）把默认画布（① 参考图 → ④ 节拍分析 → ⑤ 分镜台 → ⑥ 首帧图 → ⑦ 逐镜生成 → ⑧ 合成，② MP3 / ③ 歌词挂 ④）直接铺好，并且**素材已绑定**：
+
+- 图取 `workspace/mv_bot_1125/character.png`（没有就用 `assets` 里最新的 `image_*`），歌取 `assets` 里的《声声慢·戏腔版》，歌词取最新的 `lyrics_*`（没有则 `useLyrics=false`）。
+- 参数按常规档：864×480 / 24fps / 20 步 / `duration=0`（整首）/ `maxShots=24`；勾 Turbo 自动转 4 步。
+- 和 `bot-mv`、`bot-mv-auto` 平级：这套走分镜台逐镜编辑，那两套走 `Minimax+H3+bot` 数字人口播。
+
 ### ⑩ 拼接成片 + 一键生成 bot MV 画布
 
 顶部工具栏的 **🎬 bot MV 画布** 会用 `GET /api/presets/bot-mv` 拉一套现成流程并替换当前画布（会先弹确认）：
@@ -237,6 +245,7 @@ workspace/outputs/<job>_MV.mp4  ← /media/... 以 Range 方式回传给 <video>
 | `POST /api/workflows/run` | 运行指定工作流：`{workflowId,image,image2,audio,prompt,seed,width,height,patch,outputName,veda,vedaOptions}`；`image2` 会在 `ref_images.ref_image_1` 上补一个 LoadImage（只改本次请求）；`veda:true` 时提交前往 MODEL 链末（LoRA 之后）插 `VedaSparseAttention`，同样不动工作流文件 |
 | `GET /api/workflows/run/:id` | 工作流运行状态/日志/输出文件 |
 | `GET /api/uploads` | 已上传素材清单（供工作流节点挑选） |
+| `GET /api/presets/storyboard` | 分镜台流程预设：默认那条 ①→⑧ 链路 + 已绑定素材/参数 |
 | `GET /api/presets/bot-mv` | bot MV 画布预设：带真实素材路径的节点/连线/参数 |
 | `GET /api/presets/bot-mv-auto` | bot 导演台画布预设（按 MP3 时长自动拆分镜） |
 | `GET /api/probe?path=` | 媒体探测（ffprobe）：时长/分辨率/编码，导演台拆分镜用 |

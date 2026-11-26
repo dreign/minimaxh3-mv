@@ -230,13 +230,18 @@ async function api(req, res, url) {
   }
 
   if (p === '/api/presets' && req.method === 'GET') {
-    const list = [presets.botMvCanvas({ workspace: WORKSPACE }), presets.botMvAuto({ workspace: WORKSPACE })];
+    const list = [
+      presets.storyboardFlow({ workspace: WORKSPACE }),
+      presets.botMvCanvas({ workspace: WORKSPACE }),
+      presets.botMvAuto({ workspace: WORKSPACE }),
+    ];
     return ok(res, { presets: list.map((one) => ({ id: one.id, name: one.name, note: one.note, missing: one.missing })) });
   }
 
   // 画布预设：返回带真实素材路径的节点/连线，前端 applyPreset 即可
   if (p.startsWith('/api/presets/') && req.method === 'GET') {
     const id = decodeURIComponent(p.slice('/api/presets/'.length));
+    if (id === 'storyboard') return ok(res, presets.storyboardFlow({ workspace: WORKSPACE }));
     if (id === 'bot-mv') return ok(res, presets.botMvCanvas({ workspace: WORKSPACE }));
     if (id === 'bot-mv-auto') return ok(res, presets.botMvAuto({ workspace: WORKSPACE }));
     return fail(res, '预设不存在', 404);

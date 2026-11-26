@@ -287,6 +287,10 @@ function Canvas() {
             <option value="stitch">拼接成片</option>
             <option value="botstage">bot 导演台</option>
           </select>
+          <button className="btn" onClick={() => newCanvas('storyboard')} disabled={presetBusy}
+            title="载入默认分镜台流程：① 参考图 + ② MP3 → ④ 节拍分析 → ⑤ 分镜台 → ⑥ 首帧图 → ⑦ 逐镜生成 → ⑧ 合成（也可直接点「⚡ 一键生成 MV」）">
+            {presetBusy ? '载入中…' : '📽 分镜台流程'}
+          </button>
           <button className="btn" onClick={() => newCanvas('bot-mv')} disabled={presetBusy}
             title="载入 4 个固定 8 秒镜头的 bot 画布（1:28–2:00，逐镜手动运行）">
             {presetBusy ? '载入中…' : '🎬 bot MV 画布'}
