@@ -105,7 +105,7 @@ function botMvCanvas({ workspace, workflowId = 'Minimax+H3+bot' }) {
     params: {
       width: 608, height: 1056, fps: 24, turbo: true, steps: 4,
       seed: 2026112501, useLyrics: false, burnSubs: false, duration: 32,
-      scene: '古风夜晚长廊，灯笼暖光，戏腔吟唱',
+      scene: '',
     },
     missing,
   };
@@ -172,7 +172,7 @@ function botMvAuto({ workspace, workflowId = 'Minimax+H3+bot' }) {
     params: {
       width: 608, height: 1056, fps: 24, turbo: true, steps: 4,
       seed: 2026112601, useLyrics: false, burnSubs: false, duration: 0,
-      scene: '古风夜晚长廊，灯笼暖光，戏腔吟唱',
+      scene: '',
     },
     missing,
   };

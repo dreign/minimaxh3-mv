@@ -177,12 +177,18 @@ export function buildMotions(n: number, opt: { style: MotionStyle; energy: 0 | 1
 }
 
 /** 模板占位符：{motion} 整体 / {size} 景别 / {angle} 机位 / {move} 运动 */
-export function fillTemplate(tpl: string, m: Motion): string {
+export function fillTemplate(tpl: string, m: Motion, scene = ''): string {
   let t = tpl;
   // 大幅度运动时，模板里写死的「稳定运镜」会和手持/快推打架，直接去掉
   if (m.move.includes('手持') || m.move.includes('快速') || m.move.includes('快推')) {
     t = t.replace(/[，,]?\s*稳定运镜/g, '');
   }
+  // 场景：新模板有 {scene} 占位符就替换掉；已保存的旧模板没有占位符，就插到 {motion} 前，兼容旧画布
+  t = scene
+    ? (t.includes('{scene}') ? t.replace(/\{scene\}/g, scene)
+      : t.includes('{motion}') ? t.replace(/\{motion\}/g, `${scene}，{motion}`)
+      : `${scene}，${t}`)
+    : t.replace(/\{scene\}[，,]?\s*/g, '');
   if (!/\{(motion|size|angle|move)\}/.test(t)) return `${t}，${m.text}`;
   return t
     .replace(/\{motion\}/g, m.text)
@@ -193,7 +199,7 @@ export function fillTemplate(tpl: string, m: Motion): string {
 
 export const DEFAULT_BOT_PROMPT =
   '图1中的人物（严格保持参考图的脸型、眉形、眼睛、鼻梁与唇形不变），'
-  + '{motion}，口型与音频严格同步，电影级柔光，浅景深，镜内一个连续长镜头不切换，无字幕无水印';
+  + '{scene}，{motion}，口型与音频严格同步，电影级柔光，浅景深，镜内一个连续长镜头不切换，无字幕无水印';
 
 /** 组合总数，用于界面提示 */
 export const MOTION_COMBOS = MOTION_SIZE.length * MOTION_ANGLE.length * MOTION_MOVE.length;

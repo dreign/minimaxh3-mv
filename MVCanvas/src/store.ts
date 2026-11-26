@@ -3,6 +3,7 @@ import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import { api } from './api';
 import type { Asset, AssetKind, Analysis, Params, Shot, JobState, Keyframe, WorkflowInfo } from './types';
 import { DEFAULT_PARAMS } from './types';
+import { pickRandomScene } from './scenes';
 
 export type NodeKind = 'image' | 'audio' | 'lyrics' | 'analyze' | 'storyboard' | 'keyframe' | 'generate' | 'export' | 'workflow' | 'stitch' | 'botstage';
 
@@ -399,6 +400,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   applyPreset: (p) => {
     const assets: Record<AssetKind, Asset | null> = { ...EMPTY_ASSETS, ...(p.assets || {}) };
     const params = withTurboSteps({ ...DEFAULT_PARAMS, ...(p.params || {}) });
+    if (!params.scene) params.scene = pickRandomScene(); // 默认随机场景，换代画布也不留空
     set({
       nodes: p.nodes || initialNodes, edges: p.edges || [],
       assets, params, analysis: null, shots: p.shots || [],
@@ -568,7 +570,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     set({
       nodes: initialNodes, edges: initialEdges,
       assets: { ...EMPTY_ASSETS },
-      params: { ...DEFAULT_PARAMS }, analysis: null, shots: [], jobs: {}, activeJobId: null,
+      params: { ...DEFAULT_PARAMS, scene: pickRandomScene() }, analysis: null, shots: [], jobs: {}, activeJobId: null,
       keyframeJobId: null, keyframes: [], keyframeSize: null,
       shotVideos: [], timelineView: 'auto', selectedShot: null, wfPatch: {}, wfResults: {}, lastDeleted: null,
       stageNodeId: null, stageShots: [],

@@ -3,6 +3,7 @@ import { Handle, Position, useNodeId, useReactFlow } from '@xyflow/react';
 import { api, pollJob } from '../api';
 import { useCanvas, missingAssets, songTitleFromAsset, type WfNodeConfig } from '../store';
 import type { Shot, WorkflowNodeInfo, WorkflowParam, WorkflowRun } from '../types';
+import { SCENE_PRESETS, matchScenePreset, pickRandomScene } from '../scenes';
 import {
   buildMotions, fillTemplate, DEFAULT_BOT_PROMPT,
   MOTION_STYLES, MOTION_ENERGY, MOTION_COMBOS,
@@ -359,6 +360,13 @@ export function AnalyzeNode() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const analysis = useCanvas((s) => s.analysis);
+  /** 场景默认随机：首次进入且场景为空时抽一个预设。ref 防 StrictMode 二次执行；用户清空后不再自动填。 */
+  const sceneInitRef = useRef(false);
+  useEffect(() => {
+    if (sceneInitRef.current) return;
+    sceneInitRef.current = true;
+    if (!params.scene) setParam('scene', pickRandomScene());
+  }, []);
 
   const run = async () => {
     // 歌词可选：只要有歌曲就能分析；无歌词时按节拍 + 主题场景生成分镜
@@ -395,10 +403,18 @@ export function AnalyzeNode() {
       <Handle type="target" position={Position.Left} id="audio" style={{ top: 58 }} />
       <Handle type="target" position={Position.Left} id="lyrics" style={{ top: 88 }} />
       <Handle type="source" position={Position.Right} id="out" />
+      <div className="scene-presets">
+        <span className="muted tiny-text">场景预设</span>
+        <button className="bot-chip" title="每次随机抽一个场景" onClick={() => setParam('scene', pickRandomScene())}>🎲 随机</button>
+        {SCENE_PRESETS.map((p) => (
+          <button key={p.id} className={`bot-chip${matchScenePreset(params.scene)?.id === p.id ? ' on' : ''}`}
+            title={p.desc} onClick={() => setParam('scene', p.desc)}>{p.name}</button>
+        ))}
+      </div>
       <label className="scene-field">
         <span>主题场景 <small>（可选，每行一个场景）</small></span>
         <textarea rows={3} value={params.scene}
-          placeholder={'舞台，聚光灯，歌手\n雨夜天桥，霓虹，孤独\n海边日落，温暖'}
+          placeholder={'点上方预设一键填入，或自己写（每行一个场景）\n例：现代舞台，聚光灯，乐队背景\n雨夜天桥，霓虹，孤独'}
           onChange={(e) => setParam('scene', e.target.value)} />
         <small>每行可写环境、人物、镜头氛围；多场景时一组连续镜头共用一个场景。</small>
       </label>
@@ -1461,6 +1477,18 @@ export function BotStageNode() {
   const [aspect, setAspect] = useState(String(nodeData?.aspect ?? '9:16 (Portrait Widescreen)'));
   const [seed0, setSeed0] = useState(Number(nodeData?.baseSeed ?? params.seed ?? 2026112501));
   const [tpl, setTpl] = useState(stripOldWardrobe(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT)));
+  /** 场景预设：默认随机抽一个；拆分镜时写进每镜提示词，随节点持久化 */
+  const [scene, setScene] = useState(String(nodeData?.scene ?? ''));
+  const sceneInitRef = useRef(false);
+  useEffect(() => {
+    if (sceneInitRef.current) return;
+    sceneInitRef.current = true;
+    if (!nodeData?.scene) {
+      const picked = pickRandomScene();
+      setScene(picked);
+      if (nodeId) useCanvas.getState().setNodeData(nodeId, { scene: picked });
+    }
+  }, []);
   /** 运镜风格与幅度：决定拆分镜时分配哪些景别/机位/运动 */
   const [motionStyle, setMotionStyle] = useState<MotionStyle>(
     (['mix', 'story', 'emotion', 'stage'] as MotionStyle[]).includes(nodeData?.motionStyle) ? nodeData.motionStyle : 'mix',
@@ -1604,7 +1632,7 @@ export function BotStageNode() {
         n: i + 1,
         label: `镜${i + 1} · ${m.label}`,
         start: clock(cur), end: clock(cur + len), seconds: len,
-        prompt: fillTemplate(tpl, m),
+        prompt: fillTemplate(tpl, m, scene),
         motion: m.text,
         motionLabel: m.label,
         seed: seed0 + i,
@@ -1620,7 +1648,7 @@ export function BotStageNode() {
     persist({
       shots: list, result: null, audioStart: start, shotSeconds: perSec, shotCount: count, useSeconds: useSec,
       megapixels: mp, steps, aspect, baseSeed: seed0, prompt: tpl, autoStitch, title, fade, outputName,
-      motionStyle, motionEnergy,
+      motionStyle, motionEnergy, scene,
     });
     // 拆分后节点会突然变高，重新取景一次，否则底部按钮会被视口裁掉
     window.setTimeout(() => fitView({ padding: 0.1, duration: 450 }), 260);
@@ -1636,7 +1664,7 @@ export function BotStageNode() {
     motionLabel: m.label,
     prompt: shot.motion && shot.prompt.includes(shot.motion)
       ? shot.prompt.replace(shot.motion, m.text)
-      : fillTemplate(tpl, m),
+      : fillTemplate(tpl, m, scene),
   });
 
   /** 重排全部运镜：只换景别/机位/运动，区间与种子不动，已生成的片段仍然有效 */
@@ -1937,8 +1965,16 @@ export function BotStageNode() {
         </select>
       </label>
 
-      <label className="bot-line" title="可用占位符：{motion} 整套运镜 / {size} 景别 / {angle} 机位 / {move} 镜头运动。想完全自己写机位就只留 {size} 和 {angle}">
-        提示词模板（<code>{'{motion}'}</code> 换成整套运镜，也可拆用 <code>{'{size}'}</code> <code>{'{angle}'}</code> <code>{'{move}'}</code>）
+      <div className="scene-presets mt8">
+        <span className="muted tiny-text">场景预设</span>
+        <button className="bot-chip" title="每次随机抽一个场景" onClick={() => { const v = pickRandomScene(); setScene(v); persist({ scene: v }); }}>🎲 随机</button>
+        {SCENE_PRESETS.map((p) => (
+          <button key={p.id} className={`bot-chip${matchScenePreset(scene)?.id === p.id ? ' on' : ''}`}
+            title={p.desc} onClick={() => { setScene(p.desc); persist({ scene: p.desc }); }}>{p.name}</button>
+        ))}
+      </div>
+      <label className="bot-line" title="可用占位符：{motion} 整套运镜 / {scene} 当前场景 / {size} 景别 / {angle} 机位 / {move} 镜头运动。想完全自己写机位就只留 {size} 和 {angle}">
+        提示词模板（<code>{'{scene}'}</code> 场景、<code>{'{motion}'}</code> 整套运镜，也可拆用 <code>{'{size}'}</code> <code>{'{angle}'}</code> <code>{'{move}'}</code>）
         <textarea rows={3} value={tpl} onChange={(e) => setTpl(e.target.value)} />
       </label>
 
