@@ -1,0 +1,408 @@
+{
+  "name": "bot MV · 4×8 秒数字人",
+  "note": "素材 → 4 个 bot 镜头（各 8 秒，AudioCrop 分段的独立参数）→ 拼接成片。逐镜运行后，拼接节点会自动接住 4 段输出。",
+  "nodes": [
+    {
+      "id": "bot-image",
+      "type": "image",
+      "position": {
+        "x": 0,
+        "y": 80
+      },
+      "data": {
+        "kind": "image",
+        "label": "① 角色参考图"
+      }
+    },
+    {
+      "id": "bot-audio",
+      "type": "audio",
+      "position": {
+        "x": 0,
+        "y": 540
+      },
+      "data": {
+        "kind": "audio",
+        "label": "② 歌曲 MP3"
+      }
+    },
+    {
+      "id": "bot-shot-1",
+      "type": "workflow",
+      "position": {
+        "x": 430,
+        "y": 0
+      },
+      "data": {
+        "kind": "workflow",
+        "label": "镜1 · 中景推近",
+        "wf": {
+          "workflowId": "Minimax+H3+bot",
+          "patch": {
+            "115": {
+              "aspect_ratio": "9:16 (Portrait Widescreen)",
+              "megapixels": 0.6,
+              "multiple": 32
+            },
+            "129": {
+              "noise_seed": 2026112501
+            },
+            "142": {
+              "filename_prefix": "mvbot/S1",
+              "frame_rate": 24
+            },
+            "177": {
+              "start_time": "1:28",
+              "end_time": "1:36"
+            }
+          },
+          "prompt": "图1中身穿月白刺绣立领长衫的古风女子，半身中景正面朝向镜头开口吟唱，口型与音频严格同步，眼神平静而专注，镜头从半身缓慢推近到胸口以上，背景灯笼暖光轻微虚化，电影级柔光，浅景深，稳定运镜，无字幕无水印",
+          "seed": 2026112501,
+          "width": 608,
+          "height": 1056,
+          "useImage": true,
+          "useAudio": true,
+          "outputName": "MVbot_S1"
+        }
+      }
+    },
+    {
+      "id": "bot-shot-2",
+      "type": "workflow",
+      "position": {
+        "x": 860,
+        "y": 0
+      },
+      "data": {
+        "kind": "workflow",
+        "label": "镜2 · 近景特写",
+        "wf": {
+          "workflowId": "Minimax+H3+bot",
+          "patch": {
+            "115": {
+              "aspect_ratio": "9:16 (Portrait Widescreen)",
+              "megapixels": 0.6,
+              "multiple": 32
+            },
+            "129": {
+              "noise_seed": 2026112502
+            },
+            "142": {
+              "filename_prefix": "mvbot/S2",
+              "frame_rate": 24
+            },
+            "177": {
+              "start_time": "1:36",
+              "end_time": "1:44"
+            }
+          },
+          "prompt": "图1中月白长衫古风女子的近景特写，脸部占画面主要位置，轻声吟唱，口型与音频严格同步，睫毛轻颤、呼吸感明显，侧逆光从右后方勾出碎发轮廓，背景深青色完全虚化，镜头极缓慢向右平移，电影级浅景深，无字幕无水印",
+          "seed": 2026112502,
+          "width": 608,
+          "height": 1056,
+          "useImage": true,
+          "useAudio": true,
+          "outputName": "MVbot_S2"
+        }
+      }
+    },
+    {
+      "id": "bot-shot-3",
+      "type": "workflow",
+      "position": {
+        "x": 430,
+        "y": 720
+      },
+      "data": {
+        "kind": "workflow",
+        "label": "镜3 · 仰拍爆发",
+        "wf": {
+          "workflowId": "Minimax+H3+bot",
+          "patch": {
+            "115": {
+              "aspect_ratio": "9:16 (Portrait Widescreen)",
+              "megapixels": 0.6,
+              "multiple": 32
+            },
+            "129": {
+              "noise_seed": 2026112503
+            },
+            "142": {
+              "filename_prefix": "mvbot/S3",
+              "frame_rate": 24
+            },
+            "177": {
+              "start_time": "1:44",
+              "end_time": "1:52"
+            }
+          },
+          "prompt": "图1中月白长衫古风女子，低角度仰拍，戏腔高音爆发，口型与音频严格同步，眉头微蹙情绪强烈，夜风吹起衣袂与碎发，暖黄顶光与冷青环境光形成强对比，镜头轻微手持晃动，电影级质感，无字幕无水印",
+          "seed": 2026112503,
+          "width": 608,
+          "height": 1056,
+          "useImage": true,
+          "useAudio": true,
+          "outputName": "MVbot_S3"
+        }
+      }
+    },
+    {
+      "id": "bot-shot-4",
+      "type": "workflow",
+      "position": {
+        "x": 860,
+        "y": 720
+      },
+      "data": {
+        "kind": "workflow",
+        "label": "镜4 · 拉远全景",
+        "wf": {
+          "workflowId": "Minimax+H3+bot",
+          "patch": {
+            "115": {
+              "aspect_ratio": "9:16 (Portrait Widescreen)",
+              "megapixels": 0.6,
+              "multiple": 32
+            },
+            "129": {
+              "noise_seed": 2026112504
+            },
+            "142": {
+              "filename_prefix": "mvbot/S4",
+              "frame_rate": 24
+            },
+            "177": {
+              "start_time": "1:52",
+              "end_time": "2:00"
+            }
+          },
+          "prompt": "图1中月白长衫古风女子站在古建长廊下，镜头从近景缓缓拉远成全景，她面向镜头持续吟唱，口型与音频严格同步，身后灯笼成排向远处延伸，花瓣在空气中飘落，冷暖光交织，电影级大景深，无字幕无水印",
+          "seed": 2026112504,
+          "width": 608,
+          "height": 1056,
+          "useImage": true,
+          "useAudio": true,
+          "outputName": "MVbot_S4"
+        }
+      }
+    },
+    {
+      "id": "bot-stitch",
+      "type": "stitch",
+      "position": {
+        "x": 1280,
+        "y": 340
+      },
+      "data": {
+        "kind": "stitch",
+        "label": "⑩ 拼接成片",
+        "start": "1:28",
+        "title": "声声慢 · 戏腔版",
+        "fade": 0.6,
+        "outputName": "botMV_拼接"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-bot-img-1",
+      "source": "bot-image",
+      "sourceHandle": "out",
+      "target": "bot-shot-1",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-aud-1",
+      "source": "bot-audio",
+      "sourceHandle": "out",
+      "target": "bot-shot-1",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-out-1",
+      "source": "bot-shot-1",
+      "sourceHandle": "out",
+      "target": "bot-stitch",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#f472b6"
+      }
+    },
+    {
+      "id": "e-bot-img-2",
+      "source": "bot-image",
+      "sourceHandle": "out",
+      "target": "bot-shot-2",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-aud-2",
+      "source": "bot-audio",
+      "sourceHandle": "out",
+      "target": "bot-shot-2",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-out-2",
+      "source": "bot-shot-2",
+      "sourceHandle": "out",
+      "target": "bot-stitch",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#f472b6"
+      }
+    },
+    {
+      "id": "e-bot-img-3",
+      "source": "bot-image",
+      "sourceHandle": "out",
+      "target": "bot-shot-3",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-aud-3",
+      "source": "bot-audio",
+      "sourceHandle": "out",
+      "target": "bot-shot-3",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-out-3",
+      "source": "bot-shot-3",
+      "sourceHandle": "out",
+      "target": "bot-stitch",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#f472b6"
+      }
+    },
+    {
+      "id": "e-bot-img-4",
+      "source": "bot-image",
+      "sourceHandle": "out",
+      "target": "bot-shot-4",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-aud-4",
+      "source": "bot-audio",
+      "sourceHandle": "out",
+      "target": "bot-shot-4",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#60a5fa"
+      }
+    },
+    {
+      "id": "e-bot-out-4",
+      "source": "bot-shot-4",
+      "sourceHandle": "out",
+      "target": "bot-stitch",
+      "targetHandle": "in",
+      "animated": true,
+      "style": {
+        "stroke": "#f472b6"
+      }
+    }
+  ],
+  "assets": {
+    "image": {
+      "name": "character.png",
+      "path": "C:\\Users\\Administrator\\WorkBuddy\\2026-11-21-23-47-29\\MVCanvas\\workspace\\mv_bot_1125\\character.png",
+      "url": "/media/mv_bot_1125/character.png"
+    },
+    "audio": {
+      "name": "audio_1795581501515__声声慢_戏腔版.mp3",
+      "path": "C:\\Users\\Administrator\\WorkBuddy\\2026-11-21-23-47-29\\MVCanvas\\workspace\\assets\\audio_1795581501515__声声慢_戏腔版.mp3",
+      "url": "/media/assets/audio_1795581501515__%E5%A3%B0%E5%A3%B0%E6%85%A2_%E6%88%8F%E8%85%94%E7%89%88.mp3"
+    },
+    "lyrics": null
+  },
+  "params": {
+    "width": 608,
+    "height": 1056,
+    "fps": 24,
+    "turbo": true,
+    "steps": 4,
+    "seed": 2026112501,
+    "useLyrics": false,
+    "burnSubs": false,
+    "duration": 32,
+    "scene": "古风夜晚长廊，灯笼暖光，月白刺绣长衫女歌手，戏腔吟唱"
+  },
+  "analysis": null,
+  "shots": [
+    {
+      "id": "shot-1",
+      "index": 1,
+      "start": 0,
+      "end": 8,
+      "frames": 192,
+      "section": "chorus",
+      "lyric": "中景推近",
+      "prompt": "图1中身穿月白刺绣立领长衫的古风女子，半身中景正面朝向镜头开口吟唱，口型与音频严格同步，眼神平静而专注，镜头从半身缓慢推近到胸口以上，背景灯笼暖光轻微虚化，电影级柔光，浅景深，稳定运镜，无字幕无水印"
+    },
+    {
+      "id": "shot-2",
+      "index": 2,
+      "start": 8,
+      "end": 16,
+      "frames": 192,
+      "section": "chorus",
+      "lyric": "近景特写",
+      "prompt": "图1中月白长衫古风女子的近景特写，脸部占画面主要位置，轻声吟唱，口型与音频严格同步，睫毛轻颤、呼吸感明显，侧逆光从右后方勾出碎发轮廓，背景深青色完全虚化，镜头极缓慢向右平移，电影级浅景深，无字幕无水印"
+    },
+    {
+      "id": "shot-3",
+      "index": 3,
+      "start": 16,
+      "end": 24,
+      "frames": 192,
+      "section": "chorus",
+      "lyric": "仰拍爆发",
+      "prompt": "图1中月白长衫古风女子，低角度仰拍，戏腔高音爆发，口型与音频严格同步，眉头微蹙情绪强烈，夜风吹起衣袂与碎发，暖黄顶光与冷青环境光形成强对比，镜头轻微手持晃动，电影级质感，无字幕无水印"
+    },
+    {
+      "id": "shot-4",
+      "index": 4,
+      "start": 24,
+      "end": 32,
+      "frames": 192,
+      "section": "chorus",
+      "lyric": "拉远全景",
+      "prompt": "图1中月白长衫古风女子站在古建长廊下，镜头从近景缓缓拉远成全景，她面向镜头持续吟唱，口型与音频严格同步，身后灯笼成排向远处延伸，花瓣在空气中飘落，冷暖光交织，电影级大景深，无字幕无水印"
+    }
+  ]
+}

@@ -1,0 +1,874 @@
+{
+  "id": "mv-h3-r2v-6shot-c2c6de19",
+  "revision": 1,
+  "last_node_id": 11,
+  "last_link_id": 11,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -720,
+        80
+      ],
+      "size": [
+        360,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
+        },
+        {
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "weight_dtype"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "MiniMax H3 UNET",
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        -720,
+        220
+      ],
+      "size": [
+        360,
+        106
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name"
+          },
+          "link": null
+        },
+        {
+          "name": "type",
+          "type": "COMBO",
+          "widget": {
+            "name": "type"
+          },
+          "link": null
+        },
+        {
+          "name": "device",
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "CLIP (minimax / Qwen3-VL)",
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "minimax",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        -720,
+        380
+      ],
+      "size": [
+        360,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "title": "Video VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "minimax_h3_video_vae_fp16.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_fp16.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [
+        -720,
+        500
+      ],
+      "size": [
+        360,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "title": "Audio VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "minimax_h3_audio_vae_fp32.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "minimax_h3_audio_vae_fp32.safetensors"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "MiniMaxH3Director",
+      "pos": [
+        -280,
+        80
+      ],
+      "size": [
+        1050,
+        900
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "video_vae",
+          "type": "VAE",
+          "link": 3
+        },
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "link": 4
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        },
+        {
+          "name": "task_type",
+          "type": "COMBO",
+          "widget": {
+            "name": "task_type"
+          },
+          "link": null
+        },
+        {
+          "name": "global_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "global_prompt"
+          },
+          "link": null
+        },
+        {
+          "name": "bd_grp_sample",
+          "type": "BDGROUP",
+          "widget": {
+            "name": "bd_grp_sample"
+          },
+          "link": null
+        },
+        {
+          "name": "cfg",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg"
+          },
+          "link": null
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "frame_rate"
+          },
+          "link": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "name": "ref_max_size",
+          "type": "INT",
+          "widget": {
+            "name": "ref_max_size"
+          },
+          "link": null
+        },
+        {
+          "name": "total_frames",
+          "type": "INT",
+          "widget": {
+            "name": "total_frames"
+          },
+          "link": null
+        },
+        {
+          "name": "timeline_data",
+          "type": "STRING",
+          "widget": {
+            "name": "timeline_data"
+          },
+          "link": null
+        },
+        {
+          "name": "bd_grp_advanced",
+          "type": "BDGROUP",
+          "widget": {
+            "name": "bd_grp_advanced"
+          },
+          "link": null
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "name": "sampler",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler"
+          },
+          "link": null
+        },
+        {
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "name": "shift_video",
+          "type": "FLOAT",
+          "widget": {
+            "name": "shift_video"
+          },
+          "link": null
+        },
+        {
+          "name": "shift_audio",
+          "type": "FLOAT",
+          "widget": {
+            "name": "shift_audio"
+          },
+          "link": null
+        },
+        {
+          "name": "bd_grp_perf",
+          "type": "BDGROUP",
+          "widget": {
+            "name": "bd_grp_perf"
+          },
+          "link": null
+        },
+        {
+          "name": "clear_vram_between_segments",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "clear_vram_between_segments"
+          },
+          "link": null
+        },
+        {
+          "name": "export_source_images",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "export_source_images"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "shape": 6
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            6
+          ],
+          "shape": 6
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            7,
+            10
+          ]
+        },
+        {
+          "name": "frame_count",
+          "type": "INT",
+          "links": [
+            11
+          ]
+        },
+        {
+          "name": "source_images",
+          "type": "IMAGE",
+          "links": null,
+          "shape": 6
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3Director"
+      },
+      "widgets_values": [
+        "r2v — 参考主体生视频(Reference to Video)",
+        "<Picture 1> 作为歌手形象参考，6 个镜头同一人物同一服装，电影感霓虹灯光，24fps。",
+        "采样设置",
+        1.0,
+        42,
+        "randomize",
+        24.0,
+        864,
+        480,
+        864,
+        124,
+        "{\"version\": 5, \"editMode\": \"segment\", \"timelineMode\": \"prompt_batch\", \"totalFrames\": 744, \"frameRate\": 24.0, \"width\": 864, \"height\": 480, \"refMaxSize\": 864, \"output\": {\"mode\": \"fixed\", \"aspectRatio\": \"16:9 (宽屏)\", \"megapixels\": 0.4, \"multiple\": 32, \"longEdge\": 864, \"width\": 864, \"height\": 480, \"maxExportFrames\": 0, \"exportMode\": \"all\", \"audioMode\": \"generate\", \"continuityEnabled\": false, \"continuityOverlapFrames\": 9}, \"videoClips\": [], \"video\": {\"fileName\": \"\", \"videoFile\": \"\", \"subfolder\": \"\", \"type\": \"input\", \"frames\": [], \"frameMap\": []}, \"global\": {\"taskType\": \"r2v — 参考主体生视频(Reference to Video)\", \"prompt\": \"<Picture 1> 作为 performer 身份参考，整支 MV 保持同一人物、服装与色调。\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"referenceVideo\": {}, \"continuousReference\": false, \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}, \"refAudios\": []}, \"segments\": [{\"id\": \"s01\", \"start\": \"0\", \"length\": \"124\", \"frameCount\": \"124\", \"durationSec\": \"5.17\", \"prompt\": \"<Picture 1> is the performer, keep the exact same face, hair, outfit and identity. Shot 1 of a music video. Cinematic close-up, slow dolly-in, moody neon lighting, subtle head movement in rhythm, natural blink. overall_soundscape: soft crowd ambience and faint synth pad. non_diegetic_music: instrumental beat, no vocals, no text, no logo.\", \"negativePrompt\": \"text, watermark, logo, extra people, deformed hands\", \"taskType\": \"\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"refAudios\": [], \"refVideos\": [], \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}}, {\"id\": \"s02\", \"start\": \"124\", \"length\": \"124\", \"frameCount\": \"124\", \"durationSec\": \"5.17\", \"prompt\": \"<Picture 1> is the performer, keep the exact same face, hair, outfit and identity. Shot 2 of a music video. Cinematic close-up, slow dolly-in, moody neon lighting, subtle head movement in rhythm, natural blink. overall_soundscape: soft crowd ambience and faint synth pad. non_diegetic_music: instrumental beat, no vocals, no text, no logo.\", \"negativePrompt\": \"text, watermark, logo, extra people, deformed hands\", \"taskType\": \"\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"refAudios\": [], \"refVideos\": [], \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}}, {\"id\": \"s03\", \"start\": \"248\", \"length\": \"124\", \"frameCount\": \"124\", \"durationSec\": \"5.17\", \"prompt\": \"<Picture 1> is the performer, keep the exact same face, hair, outfit and identity. Shot 3 of a music video. Cinematic close-up, slow dolly-in, moody neon lighting, subtle head movement in rhythm, natural blink. overall_soundscape: soft crowd ambience and faint synth pad. non_diegetic_music: instrumental beat, no vocals, no text, no logo.\", \"negativePrompt\": \"text, watermark, logo, extra people, deformed hands\", \"taskType\": \"\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"refAudios\": [], \"refVideos\": [], \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}}, {\"id\": \"s04\", \"start\": \"372\", \"length\": \"124\", \"frameCount\": \"124\", \"durationSec\": \"5.17\", \"prompt\": \"<Picture 1> is the performer, keep the exact same face, hair, outfit and identity. Shot 4 of a music video. Cinematic close-up, slow dolly-in, moody neon lighting, subtle head movement in rhythm, natural blink. overall_soundscape: soft crowd ambience and faint synth pad. non_diegetic_music: instrumental beat, no vocals, no text, no logo.\", \"negativePrompt\": \"text, watermark, logo, extra people, deformed hands\", \"taskType\": \"\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"refAudios\": [], \"refVideos\": [], \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}}, {\"id\": \"s05\", \"start\": \"496\", \"length\": \"124\", \"frameCount\": \"124\", \"durationSec\": \"5.17\", \"prompt\": \"<Picture 1> is the performer, keep the exact same face, hair, outfit and identity. Shot 5 of a music video. Cinematic close-up, slow dolly-in, moody neon lighting, subtle head movement in rhythm, natural blink. overall_soundscape: soft crowd ambience and faint synth pad. non_diegetic_music: instrumental beat, no vocals, no text, no logo.\", \"negativePrompt\": \"text, watermark, logo, extra people, deformed hands\", \"taskType\": \"\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"refAudios\": [], \"refVideos\": [], \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}}, {\"id\": \"s06\", \"start\": \"620\", \"length\": \"124\", \"frameCount\": \"124\", \"durationSec\": \"5.17\", \"prompt\": \"<Picture 1> is the performer, keep the exact same face, hair, outfit and identity. Shot 6 of a music video. Cinematic close-up, slow dolly-in, moody neon lighting, subtle head movement in rhythm, natural blink. overall_soundscape: soft crowd ambience and faint synth pad. non_diegetic_music: instrumental beat, no vocals, no text, no logo.\", \"negativePrompt\": \"text, watermark, logo, extra people, deformed hands\", \"taskType\": \"\", \"refs\": [{\"index\": 0, \"imageFile\": \"\", \"fileName\": \"\"}], \"refAudios\": [], \"refVideos\": [], \"genImage\": {\"imageFile\": \"\", \"fileName\": \"\"}}], \"gen\": {\"defaultFrameCount\": 124}, \"runSelectEnabled\": false, \"runSelection\": []}",
+        "高级采样 Advanced",
+        25,
+        "res_multistep",
+        "simple",
+        12.0,
+        3.0,
+        "性能 Performance",
+        true,
+        false
+      ],
+      "title": "MV导演台 · 6镜头 r2v"
+    },
+    {
+      "id": 6,
+      "type": "CreateVideo",
+      "pos": [
+        900,
+        200
+      ],
+      "size": [
+        280,
+        120
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "widget": {
+            "name": "fps"
+          },
+          "link": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 6
+        },
+        {
+          "name": "bit_depth",
+          "type": "INT",
+          "widget": {
+            "name": "bit_depth"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24.0,
+        8
+      ]
+    },
+    {
+      "id": 7,
+      "type": "SaveVideo",
+      "pos": [
+        1240,
+        200
+      ],
+      "size": [
+        320,
+        120
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 9
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "name": "codec",
+          "type": "COMBO",
+          "widget": {
+            "name": "codec"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/MV_H3",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "PreviewAny",
+      "pos": [
+        900,
+        400
+      ],
+      "size": [
+        640,
+        200
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Director 运行报告",
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "PreviewAny",
+      "pos": [
+        900,
+        640
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "fps",
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "PreviewAny",
+      "pos": [
+        1140,
+        640
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "frame_count",
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 11,
+      "type": "MarkdownNote",
+      "pos": [
+        -720,
+        620
+      ],
+      "size": [
+        360,
+        320
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "MiniMax H3 Director · r2v",
+      "properties": {},
+      "widgets_values": [
+        "## 歌曲 MV · 6 镜头 H3 工作流\n1. 先在 ComfyUI 网页上传 1 张歌手参考图（input 目录）。\n2. 在【MV导演台】节点里，为每个 segment 的 refs 槽位上传该参考图（或用全局 refs）。\n3. 每段提示词用 <Picture 1> 指代歌手；`<d>...</d>` 写唱词。\n4. 推荐设置：0.4MP 864x480，24fps，每段124帧(约5.17s)，25 steps，res_multistep/simple，shift 12/3。\n5. 显存 16GB：使用 nvfp4_awq 文本编码器 + CPU offload；如 OOM 先把每段帧数改为 5 帧试跑。\n6. Queue 生成 6 段；用 VideoHelperSuite / ffmpeg 按歌词时间点拼接，最后叠加原曲音频。\n7. 生成音频是模型合成的；要对口型请用 T8 音频锁节点或后期替换人声。"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      2,
+      0,
+      5,
+      3,
+      "CLIP"
+    ],
+    [
+      3,
+      3,
+      0,
+      5,
+      1,
+      "VAE"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      2,
+      "VAE"
+    ],
+    [
+      5,
+      5,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      5,
+      1,
+      6,
+      2,
+      "AUDIO"
+    ],
+    [
+      7,
+      5,
+      2,
+      6,
+      1,
+      "FLOAT"
+    ],
+    [
+      8,
+      5,
+      5,
+      8,
+      0,
+      "*"
+    ],
+    [
+      9,
+      6,
+      0,
+      7,
+      0,
+      "VIDEO"
+    ],
+    [
+      10,
+      5,
+      2,
+      9,
+      0,
+      "*"
+    ],
+    [
+      11,
+      5,
+      3,
+      10,
+      0,
+      "*"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "模型加载 (MiniMax H3)",
+      "bounding": [
+        -760,
+        40,
+        440,
+        560
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "MiniMax H3 Director",
+      "bounding": [
+        -320,
+        40,
+        1120,
+        960
+      ],
+      "color": "#8A8",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "输出",
+      "bounding": [
+        860,
+        40,
+        760,
+        760
+      ],
+      "color": "#b58",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "frontendVersion": "1.23.0",
+    "note": "MiniMax H3 Director · r2v",
+    "ds": {
+      "scale": 0.85,
+      "offset": [
+        780,
+        40
+      ]
+    }
+  },
+  "version": 0.4
+}

@@ -1,0 +1,37 @@
+# ---- 依赖与构建产物 ----
+node_modules/
+dist/
+*.tsbuildinfo
+MVCanvas/oi.json
+
+# ---- 运行期数据（体积大 / 含本机路径） ----
+MVCanvas/workspace/
+MVCanvas/state.json
+MV制作交付/输出/
+*.mp4
+*.mp3
+*.wav
+*.lrc
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---- 本地配置与凭据 ----
+.env
+.env.*
+!.env.example
+
+# ---- 日志与临时文件 ----
+*.log
+*.tmp
+.workbuddy/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
