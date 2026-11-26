@@ -1475,6 +1475,16 @@ export function BotStageNode() {
     persist({ shots: next });
   }, []);
 
+  /** 把导演台镜头镜像到全局，底部时间轴在分镜台为空时显示这一份（真实数据仍以节点 data 为准） */
+  useEffect(() => {
+    if (!nodeId) return;
+    useCanvas.getState().setStageShots(nodeId, shots.map((s) => ({
+      nodeId, n: s.n, label: s.motionLabel || s.label,
+      start: s.start, end: s.end, seconds: s.seconds,
+      status: s.status, progress: s.progress, url: s.url,
+    })));
+  }, [nodeId, shots]);
+
   const pickRef2 = async (file?: File) => {
     if (!file) return;
     setRefBusy(true); setError('');
@@ -1485,8 +1495,7 @@ export function BotStageNode() {
       persist({ refImage2: a.path, refImage2Name: file.name });
     } catch (e: any) { setError(e.message); }
     finally { setRefBusy(false); }
-  };
-  const clearRef2 = () => {
+  };  const clearRef2 = () => {
     setRefImage2(''); setRefImage2Name('');
     persist({ refImage2: '', refImage2Name: '' });
   };

@@ -43,12 +43,17 @@ function Canvas() {
   const shotVideos = useCanvas((s) => s.shotVideos);
   const timelineView = useCanvas((s) => s.timelineView);
   const setTimelineView = useCanvas((s) => s.setTimelineView);
+  /** 导演台镜像的镜头：分镜台没拆分镜时，底部时间轴改显示它 */
+  const stageNodeId = useCanvas((s) => s.stageNodeId);
+  const stageShots = useCanvas((s) => s.stageShots);
   const { fitView } = useReactFlow();
 
   const [health, setHealth] = useState<any>(null);
   const [toast, setToast] = useState<{ msg: string; action?: { label: string; run: () => void } } | null>(null);
   const [busy, setBusy] = useState(false);
   const [presetBusy, setPresetBusy] = useState(false);
+  /** 分镜台与导演台都有镜头时，时间轴默认看分镜台，可手动切成导演台 */
+  const [preferStage, setPreferStage] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
@@ -260,6 +265,11 @@ function Canvas() {
   const job: JobState | undefined = activeJobId ? jobs[activeJobId] : undefined;
   const logs = job?.logs || [];
   const selectedCount = nodes.filter((n: any) => n.selected).length + edges.filter((e: any) => e.selected).length;
+  /** 分镜台没拆分镜、但导演台已经拆过：时间轴改显示导演台的镜头 */
+  const bothSources = shots.length > 0 && stageShots.length > 0;
+  const useStage = stageShots.length > 0 && (shots.length === 0 || preferStage);
+  const stageDone = stageShots.filter((s) => s.status === 'done').length;
+  const tlCount = useStage ? stageShots.length : shots.length;
 
   return (
     <div className="app">
@@ -346,17 +356,49 @@ function Canvas() {
 
       <footer className="timeline">
         <div className="timeline-head">
-          <div className="timeline-title">时间轴 <span className="muted tiny-text">{shots.length} 镜</span></div>
+          <div className="timeline-title">
+            时间轴 <span className="muted tiny-text">{tlCount} 镜</span>
+            {bothSources ? (
+              <span className="tl-srcs">
+                <button className={`tl-view ${!useStage ? 'on' : ''}`} onClick={() => setPreferStage(false)}>分镜台 {shots.length}</button>
+                <button className={`tl-view ${useStage ? 'on' : ''}`} onClick={() => setPreferStage(true)}>导演台 {stageShots.length}</button>
+              </span>
+            ) : useStage && <span className="tl-src">导演台</span>}
+          </div>
           <div className="timeline-views">
-            <span className="muted tiny-text">显示</span>
-            {([['auto', '自动'], ['keyframe', '首帧图'], ['video', '视频']] as const).map(([v, label]) => (
-              <button key={v} className={`tl-view ${timelineView === v ? 'on' : ''}`} onClick={() => setTimelineView(v)}>{label}</button>
-            ))}
+            {useStage ? (
+              <span className="muted tiny-text">
+                {stageDone}/{stageShots.length} 已完成{stageNodeId ? ' · 点缩略图定位导演台' : ''}
+              </span>
+            ) : (
+              <>
+                <span className="muted tiny-text">显示</span>
+                {([['auto', '自动'], ['keyframe', '首帧图'], ['video', '视频']] as const).map(([v, label]) => (
+                  <button key={v} className={`tl-view ${timelineView === v ? 'on' : ''}`} onClick={() => setTimelineView(v)}>{label}</button>
+                ))}
+              </>
+            )}
           </div>
         </div>
         <div className="timeline-track">
-          {shots.length === 0 && <span className="muted tiny-text">分析后这里会出现按节拍切分的镜头；生成首帧图 / 视频后显示缩略图</span>}
-          {shots.map((s) => {
+          {useStage && stageShots.map((s) => (
+            <div key={`${s.nodeId}-${s.n}`} className={`tl-shot st-${s.status}`}
+              style={{ flexGrow: Math.max(1, s.seconds) }}
+              title={`#${s.n} ${s.start}-${s.end}s · ${s.label || '导演台镜头'}${s.status === 'done' ? ' · 已完成' : s.status === 'running' ? ` · 生成中 ${Math.round((s.progress || 0) * 100)}%` : ''}`}
+              onClick={() => { if (stageNodeId) fitView({ nodes: [{ id: stageNodeId }], duration: 500, padding: 1.4 }); }}>
+              <div className="tl-thumb">
+                {s.url ? <TimelineVideo src={s.url} /> : <span className="tl-ph">#{s.n}</span>}
+                {s.status === 'running' && <div className="tl-prog"><i style={{ width: `${Math.round((s.progress || 0) * 100)}%` }} /></div>}
+                {s.status === 'paused' && <span className="tl-flag">⏸</span>}
+                {s.status === 'error' && <span className="tl-flag err">!</span>}
+              </div>
+              <div className="tl-meta">
+                <span>#{s.n}</span>
+                {s.label && <small>{s.label.slice(0, 6)}</small>}
+              </div>
+            </div>
+          ))}
+          {!useStage && shots.map((s) => {
             const videoUrl = shotVideos[s.index - 1];
             const kfUrl = keyframes.find((k) => k.index === s.index)?.url;
             const showVideo = timelineView === 'video' ? !!videoUrl : timelineView === 'keyframe' ? false : !!videoUrl;
@@ -377,6 +419,9 @@ function Canvas() {
               </div>
             );
           })}
+          {!shots.length && !stageShots.length && (
+            <span className="muted tiny-text">在「bot 导演台」拆分镜，或在分镜台分析生成后，这里会按节拍显示镜头；生成完成显示缩略图</span>
+          )}
         </div>
       </footer>
 

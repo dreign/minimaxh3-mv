@@ -174,6 +174,22 @@ export type CanvasPreset = {
 /** 删除操作的撤销快照 */
 export type DeletedSnapshot = { nodes: any[]; edges: any[]; at: number };
 
+/**
+ * 导演台（bot 工作流）镜头的全局镜像。
+ * 导演台的真实数据仍以节点 data 为准，这里只做只读镜像，供底部时间轴显示。
+ */
+export type StageShot = {
+  nodeId: string;
+  n: number;
+  label?: string;
+  start: string;
+  end: string;
+  seconds: number;
+  status: 'idle' | 'running' | 'paused' | 'done' | 'error';
+  progress?: number;
+  url?: string;
+};
+
 interface CanvasState {
   nodes: any[];
   edges: any[];
@@ -191,6 +207,11 @@ interface CanvasState {
   /** 时间轴缩略图显示模式：自动优先视频、否则首帧图 */
   timelineView: 'auto' | 'keyframe' | 'video';
   setTimelineView: (v: 'auto' | 'keyframe' | 'video') => void;
+  /** 当前在时间轴上展示的导演台节点；分镜台（shots）为空时用它兜底 */
+  stageNodeId: string | null;
+  stageShots: StageShot[];
+  /** 导演台拆分/进度/状态变化时同步镜像；空列表只允许「当前拥有者」清空 */
+  setStageShots: (nodeId: string, list: StageShot[]) => void;
   /** 从 ComfyUI workflows 目录扫描出来的工作流选项 */
   workflows: WorkflowInfo[];
   workflowsLoading: boolean;
@@ -268,6 +289,15 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   shotVideos: [],
   timelineView: 'auto',
   setTimelineView: (timelineView) => set({ timelineView }),
+  stageNodeId: null,
+  stageShots: [],
+  setStageShots: (nodeId, list) => {
+    const cur = get().stageNodeId;
+    // 多个导演台节点时，空列表不能把别人的镜头清掉
+    if (!list.length && cur && cur !== nodeId) return;
+    if (!list.length && !cur) return;
+    set({ stageNodeId: nodeId, stageShots: list });
+  },
   workflows: [],
   workflowsLoading: false,
   workflowsError: '',
@@ -364,6 +394,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       assets, params, analysis: null, shots: p.shots || [],
       jobs: {}, activeJobId: null, keyframeJobId: null, keyframes: [], keyframeSize: null,
       shotVideos: [], timelineView: 'auto', selectedShot: null, wfResults: {}, lastDeleted: null,
+      stageNodeId: null, stageShots: [],
     });
     savePersisted({ assets, params });
   },
@@ -405,10 +436,13 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     const goneEdges = edges.filter((e: any) => edgeSet.has(e.id) || idSet.has(e.source) || idSet.has(e.target));
     if (!goneNodes.length && !goneEdges.length) return;
     const goneEdgeIds = new Set(goneEdges.map((e: any) => e.id));
+    const stageGone = !!get().stageNodeId && idSet.has(get().stageNodeId!);
     set({
       nodes: nodes.filter((n: any) => !idSet.has(n.id)),
       edges: edges.filter((e: any) => !goneEdgeIds.has(e.id)),
       lastDeleted: { nodes: goneNodes, edges: goneEdges, at: Date.now() },
+      // 删掉正在上时间轴的导演台时，时间轴同步清空，避免留着已不存在的镜头
+      ...(stageGone ? { stageNodeId: null, stageShots: [] } : {}),
     });
   },
   removeEdges: (ids) => {
@@ -527,6 +561,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       params: { ...DEFAULT_PARAMS }, analysis: null, shots: [], jobs: {}, activeJobId: null,
       keyframeJobId: null, keyframes: [], keyframeSize: null,
       shotVideos: [], timelineView: 'auto', selectedShot: null, wfPatch: {}, wfResults: {}, lastDeleted: null,
+      stageNodeId: null, stageShots: [],
     });
   },
 }));
