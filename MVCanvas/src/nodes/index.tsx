@@ -1654,8 +1654,9 @@ export function BotStageNode() {
   const STOP = '__mv_stop__';
 
   /** 串行逐镜生成（ComfyUI 单队列，串行才不会互相抢显存），跑完按开关自动合成。
-   *  只跑 indices 里没完成的镜头，因此「继续生成」天然不会重跑已完成的镜。 */
-  const runShots = async (indices: number[]) => {
+   *  只跑 indices 里没完成的镜头，因此「继续生成」天然不会重跑已完成的镜。
+   *  force=true 时不做 runId 接续（单镜 ▶ 重跑：按当前参数重新提交）。 */
+  const runShots = async (indices: number[], force = false) => {
     if (busy) return;
     if (!assets.image?.path) { setError('缺少角色参考图'); return; }
     if (!assets.audio?.path) { setError('缺少歌曲 MP3'); return; }
@@ -1702,8 +1703,8 @@ export function BotStageNode() {
         let shot = list[idx];
         if (!shot || shot.status === 'done') continue;
 
-        // 上次中断但服务端有对应 runId：先尝试接回
-        if (shot.status === 'paused' && shot.runId) {
+        // 上次中断但服务端有对应 runId：先尝试接回（单镜重跑时跳过，按新参数重来）
+        if (!force && shot.status === 'paused' && shot.runId) {
           setAttaching(true);
           let attached: 'done' | 'lost' = 'lost';
           try { attached = await attachRun(idx, shot.runId); }
@@ -1918,8 +1919,8 @@ export function BotStageNode() {
                 <span className="bot-shot-time">{s.start}–{s.end} · {s.seconds}s</span>
                 <button className="bot-mini" title="展开/收起提示词"
                   onClick={() => setOpen(open === i ? null : i)}>✎</button>
-                <button className="bot-mini" title="只重跑这一镜"
-                  disabled={busy} onClick={() => runShots([i])}>▶</button>
+                <button className="bot-mini" title="只重跑这一镜（用当前参数重新提交，不接续上次的任务）"
+                  disabled={busy} onClick={() => runShots([i], true)}>▶</button>
               </div>
               {s.status === 'running' && (
                 <div className="bot-bar"><i style={{ width: `${Math.round((s.progress || 0) * 100)}%` }} /></div>
