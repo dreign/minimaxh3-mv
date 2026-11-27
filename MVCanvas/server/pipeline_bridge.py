@@ -273,7 +273,7 @@ def frame_prompt_for(shot: dict) -> str:
         r"slow dolly-in|smooth lateral tracking|gentle handheld sway|"
         r"orbiting arc around the performer|slow pull-back reveal|"
         r"locked-off static frame|rack focus from foreground to the face|"
-        r"subtle crane-up|quick push-in on the beat"
+        r"quick push-in on the beat"
     )
     p = re.sub(rf"(Variation for this shot in the same scene:[^.]*?),\s*(?:{motion_words})", r"\1", p)
     p = p.replace("natural continuous motion", "a single frozen moment")

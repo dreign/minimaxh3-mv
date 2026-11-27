@@ -1435,6 +1435,22 @@ const stripOldWardrobe = (s: string) => s
   .replace(/月白长衫古风女子/g, '人物')
   .replace(/月白刺绣长衫女歌手/g, '歌手');
 
+/** 俯拍/仰拍与升降运镜在 H3 上容易崩；旧画布里的这类文案加载时换成水平机位/运镜 */
+const stripVerticalMotion = (s: string) => s
+  .replace(/低角度仰拍机位，人物显得挺拔有力/g, '三四侧机位')
+  .replace(/高角度俯拍机位，视线从上往下压/g, '正面平视机位')
+  .replace(/近乎正上方的顶拍机位，地面或裙摆形成图案/g, '三四侧机位')
+  .replace(/贴近地面的超低机位，前景是虚化的地面与衣摆/g, '正面平视机位')
+  .replace(/镜头保持不动，只极缓慢地抬高一点，露出更多背景/g, '镜头几乎不动，只有极轻微的呼吸式浮动')
+  .replace(/镜头极缓慢向下移动一点，视线落回人物腰线/g, '镜头几乎不动，只有极轻微的呼吸式浮动')
+  .replace(/镜头从腰部高度缓慢升到与眼睛平齐/g, '镜头极缓慢地向前推近，取景逐渐收紧')
+  .replace(/镜头从高处缓慢下降到平视高度/g, '镜头缓慢向后拉远，逐渐带出更多环境')
+  .replace(/低角度仰拍|高角度俯拍|高位俯拍/g, (m) => (m.includes('仰') ? '三四侧机位' : '正面平视机位'))
+  .replace(/顶拍|仰拍|俯拍/g, (m) => (m === '俯拍' ? '正面平视机位' : '三四侧机位'))
+  .replace(/升镜/g, '缓推')
+  .replace(/降镜/g, '缓拉')
+  .replace(/缓抬|缓下移/g, '静止微浮');
+
 type BotShotStatus = 'idle' | 'running' | 'paused' | 'done' | 'error';
 type BotShot = {
   n: number;
@@ -1476,7 +1492,7 @@ export function BotStageNode() {
   const [veda, setVeda] = useState(nodeData?.veda === true);
   const [aspect, setAspect] = useState(String(nodeData?.aspect ?? '9:16 (Portrait Widescreen)'));
   const [seed0, setSeed0] = useState(Number(nodeData?.baseSeed ?? params.seed ?? 2026112501));
-  const [tpl, setTpl] = useState(stripOldWardrobe(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT)));
+  const [tpl, setTpl] = useState(stripVerticalMotion(stripOldWardrobe(String(nodeData?.prompt ?? DEFAULT_BOT_PROMPT))));
   /** 场景预设：默认随机抽一个；拆分镜时写进每镜提示词，随节点持久化 */
   const [scene, setScene] = useState(String(nodeData?.scene ?? ''));
   const sceneInitRef = useRef(false);
@@ -1529,15 +1545,31 @@ export function BotStageNode() {
   useEffect(() => {
     if (recoveredRef.current) return;
     recoveredRef.current = true;
-    // 老画布里保存的旧默认提示词也一起改掉，免得「重新载入画布」后又写回人物服装
+    // 老画布里保存的旧默认提示词也一起改掉，免得「重新载入画布」后又写回人物服装/俯仰运镜
     const oldPrompt = nodeData?.prompt;
-    if (typeof oldPrompt === 'string' && stripOldWardrobe(oldPrompt) !== oldPrompt) {
-      persist({ prompt: stripOldWardrobe(oldPrompt) });
+    if (typeof oldPrompt === 'string') {
+      const cleaned = stripVerticalMotion(stripOldWardrobe(oldPrompt));
+      if (cleaned !== oldPrompt) persist({ prompt: cleaned });
     }
-    if (!shots.some((s) => s.status === 'running')) return;
-    const next = shots.map((s) => (s.status === 'running' ? { ...s, status: 'paused' as BotShotStatus } : s));
-    setShots(next);
-    persist({ shots: next });
+    let next = shots;
+    let changed = false;
+    if (shots.some((s) => s.status === 'running')) {
+      next = shots.map((s) => (s.status === 'running' ? { ...s, status: 'paused' as BotShotStatus } : s));
+      changed = true;
+    }
+    // 已拆好的镜头也清一遍，免得旧提示词里还残留「仰拍 / 俯拍 / 升降」
+    const cleanedShots = next.map((s) => {
+      const prompt = stripVerticalMotion(s.prompt || '');
+      const motion = stripVerticalMotion(s.motion || '');
+      const motionLabel = stripVerticalMotion(s.motionLabel || '');
+      return prompt === (s.prompt || '') && motion === (s.motion || '') && motionLabel === (s.motionLabel || '')
+        ? s
+        : { ...s, prompt, motion, motionLabel };
+    });
+    if (cleanedShots.some((s, i) => s !== next[i])) changed = true;
+    if (!changed) return;
+    setShots(cleanedShots);
+    persist({ shots: cleanedShots });
   }, []);
 
   /** 把导演台镜头镜像到全局，底部时间轴在分镜台为空时显示这一份（真实数据仍以节点 data 为准） */

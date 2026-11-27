@@ -118,8 +118,6 @@ MV_VARIATION = {
         ("full-body wide shot from a camera placed far back", "全身全景·远机位"),
         ("wide establishing shot with the performer small in frame", "环境远景·大远景机位"),
         ("over-the-shoulder shot from behind the performer", "过肩机位·背后"),
-        ("low-angle hero framing from below eye level", "低角度仰拍"),
-        ("high-angle downward view from above", "高位俯拍"),
         ("side profile from a profile camera position", "侧面剪影·侧机位"),
     ],
     "light": [
@@ -141,7 +139,6 @@ MV_VARIATION = {
         ("slow pull-back reveal", "缓拉揭示"),
         ("locked-off static frame", "固定机位"),
         ("rack focus from foreground to the face", "前景转焦"),
-        ("subtle crane-up", "轻微升镜"),
         ("quick push-in on the beat", "卡点快推"),
     ],
     "action": [
@@ -160,7 +157,7 @@ MV_VARIATION = {
 
 # 段落决定景别起点：主歌偏近景、副歌/前奏偏全景、桥段偏侧拍
 SECTION_FRAMING_START = {
-    "intro": 5, "verse": 0, "prechorus": 7, "chorus": 4, "bridge": 6, "outro": 5,
+    "intro": 5, "verse": 0, "prechorus": 3, "chorus": 4, "bridge": 6, "outro": 5,
 }
 
 # 首帧图专用：静帧对「主体占画面多大」比视频更敏感，按机位补一句覆盖范围说明。
@@ -173,8 +170,6 @@ FRAMING_COVERAGE = [
     "the full body is visible from head to feet",
     "the performer is small in a wide frame with empty space, the whole location is visible",
     "the performer is seen from behind, over the shoulder",
-    "the camera is low near the floor, looking up at the performer",
-    "the camera is above, looking down at the performer",
     "the performer is seen in profile from the side",
 ]
 
