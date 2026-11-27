@@ -1547,6 +1547,7 @@ export function BotStageNode() {
       nodeId, n: s.n, label: s.motionLabel || s.label,
       start: s.start, end: s.end, seconds: s.seconds,
       status: s.status, progress: s.progress, url: s.url,
+      prompt: s.prompt, motionLabel: s.motionLabel,
     })));
   }, [nodeId, shots]);
 

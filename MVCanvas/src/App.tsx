@@ -270,6 +270,19 @@ function Canvas() {
   const useStage = stageShots.length > 0 && (shots.length === 0 || preferStage);
   const stageDone = stageShots.filter((s) => s.status === 'done').length;
   const tlCount = useStage ? stageShots.length : shots.length;
+  /** 当前选中的镜头：分镜台按 index、导演台按 n，和底部时间轴正在显示的那份保持一致 */
+  const pickedShot = useStage
+    ? stageShots.find((s) => s.n === selectedShot)
+    : shots.find((s) => s.index === selectedShot);
+  const pickedVideo = (pickedShot as any)?.prompt || '';
+  const pickedFrame = !useStage ? ((pickedShot as any)?.framePrompt || '') : '';
+  const pickedMeta = useStage
+    ? (pickedShot as any)?.label || ''
+    : [(pickedShot as any)?.section, (pickedShot as any)?.scene, (pickedShot as any)?.lyric].filter(Boolean).join(' · ');
+  const copyPrompt = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); notify('提示词已复制'); }
+    catch { notify('复制失败，请手动选中'); }
+  };
 
   return (
     <div className="app">
@@ -339,7 +352,28 @@ function Canvas() {
         </div>
 
         <aside className="sidepanel">
-          <div className="panel-title">任务日志</div>
+          {pickedShot ? (
+            <div className="pick-panel">
+              <div className="panel-title row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                <span>分镜 #{String((pickedShot as any).n ?? (pickedShot as any).index).padStart(2, '0')} · 提示词</span>
+                <button className="btn tiny ghost" title="收起" onClick={() => setSelectedShot(null)}>✕</button>
+              </div>
+              {pickedMeta && <div className="pick-meta">{pickedMeta}</div>}
+              <div className="pick-sub">🎞 视频提示词</div>
+              <div className="pick-prompt">{pickedVideo || <span className="muted tiny-text">（空）</span>}</div>
+              <button className="btn tiny ghost pick-copy" onClick={() => copyPrompt(pickedVideo)}>复制视频提示词</button>
+              {pickedFrame && (
+                <>
+                  <div className="pick-sub">🖼 首帧图提示词</div>
+                  <div className="pick-prompt">{pickedFrame}</div>
+                  <button className="btn tiny ghost pick-copy" onClick={() => copyPrompt(pickedFrame)}>复制首帧图提示词</button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="pick-panel pick-empty">点击分镜台镜头卡片或底部时间轴的任意一镜，这里显示该镜提示词。</div>
+          )}
+          <div className="panel-title mt16">任务日志</div>
           {job ? (
             <>
               <div className="job-head"><span className={`badge ${job.status}`}>{job.status}</span><span className="muted tiny-text">{job.stage}</span></div>
@@ -386,10 +420,13 @@ function Canvas() {
         </div>
         <div className="timeline-track">
           {useStage && stageShots.map((s) => (
-            <div key={`${s.nodeId}-${s.n}`} className={`tl-shot st-${s.status}`}
+            <div key={`${s.nodeId}-${s.n}`} className={`tl-shot st-${s.status} ${selectedShot === s.n ? 'active' : ''}`}
               style={{ flexGrow: Math.max(1, s.seconds) }}
               title={`#${s.n} ${s.start}-${s.end}s · ${s.label || '导演台镜头'}${s.status === 'done' ? ' · 已完成' : s.status === 'running' ? ` · 生成中 ${Math.round((s.progress || 0) * 100)}%` : ''}`}
-              onClick={() => { if (stageNodeId) fitView({ nodes: [{ id: stageNodeId }], duration: 500, padding: 1.4 }); }}>
+              onClick={() => {
+                setSelectedShot(s.n);
+                if (stageNodeId) fitView({ nodes: [{ id: stageNodeId }], duration: 500, padding: 1.4 });
+              }}>
               <div className="tl-thumb">
                 {s.url ? <TimelineVideo src={s.url} /> : <span className="tl-ph">#{s.n}</span>}
                 {s.status === 'running' && <div className="tl-prog"><i style={{ width: `${Math.round((s.progress || 0) * 100)}%` }} /></div>}

@@ -199,6 +199,9 @@ export type StageShot = {
   status: 'idle' | 'running' | 'paused' | 'done' | 'error';
   progress?: number;
   url?: string;
+  /** 该镜的提示词（导演台只有视频提示词），供右侧面板在选中时显示 */
+  prompt?: string;
+  motionLabel?: string;
 };
 
 interface CanvasState {
